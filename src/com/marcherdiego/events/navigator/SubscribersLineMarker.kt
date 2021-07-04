@@ -15,7 +15,7 @@ import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.AnnotatedElementsSearch
 import java.awt.event.MouseEvent
 
-class StateArtLineMarker : LineMarkerProvider {
+class SubscribersLineMarker : LineMarkerProvider {
 
     override fun getLineMarkerInfo(psiElement: PsiElement): LineMarkerInfo<*>? {
         return if (isSubscriptionMethod(psiElement)) {
