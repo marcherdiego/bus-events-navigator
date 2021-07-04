@@ -1,0 +1,17 @@
+# Ignore Gradle build output directory
+.gradle/
+build/
+out/
+
+# Android Studio & IntelliJ
+.idea/
+*.iml
+
+.DS_Store
+.navigation/
+
+# Log Files
+*.log
+
+# Java class files
+*.class
