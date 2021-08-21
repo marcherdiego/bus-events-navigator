@@ -56,15 +56,14 @@ class SubscribersLineMarker : LineMarkerProvider {
         val parameter = subscriberMethod.parameterList.parameters.first()
         val parameterClass = javaPsiFacade.findClass(parameter.type.canonicalText, allScope) ?: return
         parameterClass.constructors.forEach {
-            MethodReferencesSearch.search(it, allScope, false).findAll().forEach innerForEach@ {
+            MethodReferencesSearch.search(it, allScope, false).findAll().forEach {
                 val element = it.element
                 val referencingElement = (element.references.firstOrNull() ?: return).element
-                if (psiElement.containingFile == referencingElement) {
-                    // Ignore references from this file
-                    return@innerForEach
+                if (psiElement.containingFile != referencingElement.containingFile) {
+                    val fileName = referencingElement.containingFile.name
+                    val referenceLine = StringUtil.offsetToLineNumber(element.containingFile.text, referencingElement.textOffset) + 1
+                    System.err.println("MethodReferencesSearch: $fileName line: $referenceLine")
                 }
-                val referenceLine = StringUtil.offsetToLineNumber(element.containingFile.text, referencingElement.textOffset)
-                System.err.println("MethodReferencesSearch: ${element.text} line: $referenceLine")
             }
         }
         System.err.println("----------------------------")
