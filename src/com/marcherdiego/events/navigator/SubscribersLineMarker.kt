@@ -6,25 +6,33 @@ import com.intellij.codeInsight.daemon.LineMarkerInfo
 import com.intellij.codeInsight.daemon.LineMarkerProvider
 import com.intellij.openapi.editor.markup.GutterIconRenderer
 import com.intellij.openapi.util.IconLoader
+import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.JavaPsiFacade
+import com.intellij.psi.PsiClass
 import com.intellij.util.Function
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiMethod
 import com.intellij.psi.impl.source.tree.LeafPsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.AnnotatedElementsSearch
+import com.intellij.psi.search.searches.MethodReferencesSearch
 import java.awt.event.MouseEvent
 
 class SubscribersLineMarker : LineMarkerProvider {
 
+    private var initDone = false
+    private lateinit var subscribeAnnotationClass: PsiClass
+    private lateinit var javaPsiFacade: JavaPsiFacade
+    private lateinit var allScope: GlobalSearchScope
+
     override fun getLineMarkerInfo(psiElement: PsiElement): LineMarkerInfo<*>? {
+        init(psiElement)
         return if (isSubscriptionMethod(psiElement)) {
             LineMarkerInfo<PsiElement>(
                     psiElement,
                     psiElement.textRange,
                     icon,
                     Pass.LINE_MARKERS,
-                    Function { "State Art" },
+                    Function { "Usage graph" },
                     GutterIconNavigationHandler<PsiElement> { _: MouseEvent, psiElement: PsiElement ->
                         buildDependenciesGraph(psiElement)
                     },
@@ -36,28 +44,30 @@ class SubscribersLineMarker : LineMarkerProvider {
     }
 
     private fun buildDependenciesGraph(psiElement: PsiElement) {
-        val project = psiElement.project
-        val annotationClass = JavaPsiFacade
-                                      .getInstance(project)
-                                      .findClass("org.greenrobot.eventbus.Subscribe", GlobalSearchScope.allScope(project)) ?: return
-        val psiMethods = AnnotatedElementsSearch.searchPsiMethods(
-                annotationClass,
-                GlobalSearchScope.allScope(project)
-        )
-        val allMethods: Collection<PsiMethod> = psiMethods.findAll()
-
-        allMethods.forEach {
-            System.err.println("----------------------------")
-            System.err.println("Name: ${it.name}")
-            val parameter = it.parameterList.parameters.first()
-            System.err.println("Parameter: ${parameter.type.canonicalText}")
-            System.err.println("body {")
-            it.body?.statements?.forEach {
-                System.err.println(it.text)
+        val fileScope = GlobalSearchScope.fileScope(psiElement.containingFile)
+        val psiMethods = AnnotatedElementsSearch.searchPsiMethods(subscribeAnnotationClass, fileScope)
+        val fileText = psiElement.containingFile.text
+        val elementLine = StringUtil.offsetToLineNumber(fileText, psiElement.textOffset)
+        val subscriberMethod = psiMethods.findAll().firstOrNull {
+            val methodLine = StringUtil.offsetToLineNumber(fileText, it.textOffset)
+            methodLine in elementLine..elementLine + 1
+        } ?: return
+        System.err.println("Name: ${subscriberMethod.name}")
+        val parameter = subscriberMethod.parameterList.parameters.first()
+        val parameterClass = javaPsiFacade.findClass(parameter.type.canonicalText, allScope) ?: return
+        parameterClass.constructors.forEach {
+            MethodReferencesSearch.search(it, allScope, false).findAll().forEach innerForEach@ {
+                val element = it.element
+                val referencingElement = (element.references.firstOrNull() ?: return).element
+                if (psiElement.containingFile == referencingElement) {
+                    // Ignore references from this file
+                    return@innerForEach
+                }
+                val referenceLine = StringUtil.offsetToLineNumber(element.containingFile.text, referencingElement.textOffset)
+                System.err.println("MethodReferencesSearch: ${element.text} line: $referenceLine")
             }
-            System.err.println("}")
-            System.err.println("----------------------------")
         }
+        System.err.println("----------------------------")
     }
 
     private fun isSubscriptionMethod(psiElement: PsiElement): Boolean {
@@ -68,6 +78,16 @@ class SubscribersLineMarker : LineMarkerProvider {
     }
 
     override fun collectSlowLineMarkers(elements: MutableList<PsiElement>, result: MutableCollection<LineMarkerInfo<PsiElement>>) {
+    }
+
+    private fun init(psiElement: PsiElement) {
+        if (initDone.not()) {
+            initDone = true
+
+            javaPsiFacade = JavaPsiFacade.getInstance(psiElement.project)
+            allScope = GlobalSearchScope.allScope(psiElement.project)
+            subscribeAnnotationClass = javaPsiFacade.findClass("org.greenrobot.eventbus.Subscribe", allScope) ?: return
+        }
     }
 
     companion object {
