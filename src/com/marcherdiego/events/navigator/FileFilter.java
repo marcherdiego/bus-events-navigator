@@ -5,11 +5,11 @@ import com.intellij.psi.*;
 import com.intellij.usages.ReadWriteAccessUsageInfo2UsageAdapter;
 import com.intellij.usages.Usage;
 
-public class SenderFilterKotlin implements Filter {
+public class FileFilter implements Filter {
 
     private final VirtualFile file;
 
-    SenderFilterKotlin(PsiMethod method) {
+    FileFilter(PsiMethod method) {
         this.file = method.getContainingFile().getVirtualFile();
     }
 

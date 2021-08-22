@@ -14,10 +14,8 @@ import com.intellij.psi.PsiMethod
 import com.intellij.psi.impl.source.tree.LeafPsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.AnnotatedElementsSearch
-import com.intellij.psi.search.searches.MethodReferencesSearch
 import com.intellij.psi.util.PsiUtilBase
 import com.intellij.ui.awt.RelativePoint
-import com.marcherdiego.events.navigator.domain.Callee
 import com.marcherdiego.events.navigator.domain.Callees
 import java.awt.event.MouseEvent
 
@@ -39,11 +37,7 @@ class SubscribersLineMarker : LineMarkerProvider {
                     null,
                     GutterIconNavigationHandler<PsiElement> { e: MouseEvent, psiElement: PsiElement ->
                         val callees = buildDependenciesGraph(psiElement) ?: return@GutterIconNavigationHandler
-                        //callees.forEach {
-                        // System.err.println("fun ${it.subscriberMethod.name} references ${(it.parameter.type as PsiClassReferenceType).name} on ${it.referencingElementFile.name} line: ${it.referenceLine}")
-                        //}
-
-                        val filter = SenderFilterKotlin(callees.subscriberMethod)
+                        val filter = FileFilter(callees.subscriberMethod)
                         ShowUsagesAction(filter).startFindUsages(
                                 callees.constructorReference,
                                 RelativePoint(e),
@@ -64,20 +58,6 @@ class SubscribersLineMarker : LineMarkerProvider {
         val parameterClass = javaPsiFacade.findClass(parameter.type.canonicalText, allScope) ?: return null
         val elementCallees = Callees(subscriberMethod, parameter, mutableListOf())
         elementCallees.constructorReference = parameterClass.constructors.first()
-        /*
-        val elementContainingFile = psiElement.containingFile
-        parameterClass.constructors.filterNotNull().forEach { constructor ->
-            MethodReferencesSearch.search(constructor, allScope, false).findAll().forEach { constructorReference ->
-                val element = constructorReference.element
-                val referencingElement = (element.references.firstOrNull() ?: return null).element
-                val referencingElementFile = referencingElement.containingFile
-                if (elementContainingFile != referencingElementFile) {
-                    val referenceLine = StringUtil.offsetToLineNumber(element.containingFile.text, referencingElement.textOffset) + 1
-                    elementCallees.references.add(Callee(referencingElementFile, referenceLine))
-                }
-            }
-        }
-         */
         return elementCallees
     }
 

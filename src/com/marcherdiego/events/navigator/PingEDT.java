@@ -22,9 +22,6 @@ import org.jetbrains.annotations.NotNull;
 import javax.swing.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Created by kgmyshin on 2015/06/07.
- */
 public class PingEDT {
     private final String myName;
     private final Runnable pingAction;

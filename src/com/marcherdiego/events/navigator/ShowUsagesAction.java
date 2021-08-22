@@ -67,12 +67,6 @@ import java.awt.event.ActionListener;
 import java.util.*;
 import java.util.List;
 
-/**
- * modify by likfe ( https://github.com/likfe/ ) in 2016/09/05
- * <p>
- * add ShowUsagesAction(), if Registering actions in the plugin.xml file,ShowUsagesAction must have ShowUsagesAction()
- */
-
 public class ShowUsagesAction extends AnAction implements PopupAction{
     private static final int USAGES_PAGE_SIZE = 100;
 
