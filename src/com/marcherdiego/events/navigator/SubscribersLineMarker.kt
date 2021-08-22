@@ -9,12 +9,16 @@ import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.JavaPsiFacade
 import com.intellij.psi.PsiClass
-import com.intellij.util.Function
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiMethod
 import com.intellij.psi.impl.source.tree.LeafPsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.AnnotatedElementsSearch
 import com.intellij.psi.search.searches.MethodReferencesSearch
+import com.intellij.psi.util.PsiUtilBase
+import com.intellij.ui.awt.RelativePoint
+import com.marcherdiego.events.navigator.domain.Callee
+import com.marcherdiego.events.navigator.domain.Callees
 import java.awt.event.MouseEvent
 
 class SubscribersLineMarker : LineMarkerProvider {
@@ -32,9 +36,20 @@ class SubscribersLineMarker : LineMarkerProvider {
                     psiElement.textRange,
                     icon,
                     Pass.LINE_MARKERS,
-                    Function { "Usage graph" },
-                    GutterIconNavigationHandler<PsiElement> { _: MouseEvent, psiElement: PsiElement ->
-                        buildDependenciesGraph(psiElement)
+                    null,
+                    GutterIconNavigationHandler<PsiElement> { e: MouseEvent, psiElement: PsiElement ->
+                        val callees = buildDependenciesGraph(psiElement) ?: return@GutterIconNavigationHandler
+                        //callees.forEach {
+                        // System.err.println("fun ${it.subscriberMethod.name} references ${(it.parameter.type as PsiClassReferenceType).name} on ${it.referencingElementFile.name} line: ${it.referenceLine}")
+                        //}
+
+                        val filter = SenderFilterKotlin(callees.subscriberMethod)
+                        ShowUsagesAction(filter).startFindUsages(
+                                callees.constructorReference,
+                                RelativePoint(e),
+                                PsiUtilBase.findEditor(callees.subscriberMethod),
+                                Constants.MAX_USAGES
+                        )
                     },
                     GutterIconRenderer.Alignment.CENTER
             )
@@ -43,30 +58,39 @@ class SubscribersLineMarker : LineMarkerProvider {
         }
     }
 
-    private fun buildDependenciesGraph(psiElement: PsiElement) {
-        val fileScope = GlobalSearchScope.fileScope(psiElement.containingFile)
-        val psiMethods = AnnotatedElementsSearch.searchPsiMethods(subscribeAnnotationClass, fileScope)
-        val fileText = psiElement.containingFile.text
-        val elementLine = StringUtil.offsetToLineNumber(fileText, psiElement.textOffset)
-        val subscriberMethod = psiMethods.findAll().firstOrNull {
-            val methodLine = StringUtil.offsetToLineNumber(fileText, it.textOffset)
-            methodLine in elementLine..elementLine + 1
-        } ?: return
-        System.err.println("Name: ${subscriberMethod.name}")
+    private fun buildDependenciesGraph(psiElement: PsiElement): Callees? {
+        val subscriberMethod = findAnnotatedMethod(psiElement) ?: return null
         val parameter = subscriberMethod.parameterList.parameters.first()
-        val parameterClass = javaPsiFacade.findClass(parameter.type.canonicalText, allScope) ?: return
-        parameterClass.constructors.forEach {
-            MethodReferencesSearch.search(it, allScope, false).findAll().forEach {
-                val element = it.element
-                val referencingElement = (element.references.firstOrNull() ?: return).element
-                if (psiElement.containingFile != referencingElement.containingFile) {
-                    val fileName = referencingElement.containingFile.name
+        val parameterClass = javaPsiFacade.findClass(parameter.type.canonicalText, allScope) ?: return null
+        val elementCallees = Callees(subscriberMethod, parameter, mutableListOf())
+        elementCallees.constructorReference = parameterClass.constructors.first()
+        /*
+        val elementContainingFile = psiElement.containingFile
+        parameterClass.constructors.filterNotNull().forEach { constructor ->
+            MethodReferencesSearch.search(constructor, allScope, false).findAll().forEach { constructorReference ->
+                val element = constructorReference.element
+                val referencingElement = (element.references.firstOrNull() ?: return null).element
+                val referencingElementFile = referencingElement.containingFile
+                if (elementContainingFile != referencingElementFile) {
                     val referenceLine = StringUtil.offsetToLineNumber(element.containingFile.text, referencingElement.textOffset) + 1
-                    System.err.println("MethodReferencesSearch: $fileName line: $referenceLine")
+                    elementCallees.references.add(Callee(referencingElementFile, referenceLine))
                 }
             }
         }
-        System.err.println("----------------------------")
+         */
+        return elementCallees
+    }
+
+    private fun findAnnotatedMethod(psiElement: PsiElement): PsiMethod? {
+        val elementContainingFile = psiElement.containingFile
+        val fileScope = GlobalSearchScope.fileScope(elementContainingFile)
+        val psiMethods = AnnotatedElementsSearch.searchPsiMethods(subscribeAnnotationClass, fileScope)
+        val fileText = elementContainingFile.text
+        val elementLine = StringUtil.offsetToLineNumber(fileText, psiElement.textOffset)
+        return psiMethods.findAll().firstOrNull {
+            val methodLine = StringUtil.offsetToLineNumber(fileText, it.textOffset)
+            methodLine in elementLine..elementLine + 1
+        }
     }
 
     private fun isSubscriptionMethod(psiElement: PsiElement): Boolean {
