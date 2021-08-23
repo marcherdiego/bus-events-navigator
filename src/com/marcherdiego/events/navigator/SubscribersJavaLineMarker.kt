@@ -19,7 +19,7 @@ import com.intellij.ui.awt.RelativePoint
 import com.marcherdiego.events.navigator.domain.Callees
 import java.awt.event.MouseEvent
 
-class SubscribersLineMarker : LineMarkerProvider {
+class SubscribersJavaLineMarker : LineMarkerProvider {
 
     private var initDone = false
     private lateinit var subscribeAnnotationClass: PsiClass
@@ -75,9 +75,15 @@ class SubscribersLineMarker : LineMarkerProvider {
 
     private fun isSubscriptionMethod(psiElement: PsiElement): Boolean {
         val isLeaf = psiElement is LeafPsiElement
+        if (isLeaf.not()) {
+            return false
+        }
         val isSubscribe = psiElement.text == "Subscribe"
-        val parentHasNoSiblings = psiElement.parent.prevSibling == null && psiElement.parent.nextSibling == null
-        return isLeaf && parentHasNoSiblings && isSubscribe
+        if (isSubscribe.not()) {
+            return false
+        }
+        val parentPreviousSibling = psiElement.parent.prevSibling ?: return false
+        return parentPreviousSibling.text == "@"
     }
 
     override fun collectSlowLineMarkers(elements: MutableList<PsiElement>, result: MutableCollection<LineMarkerInfo<PsiElement>>) {
