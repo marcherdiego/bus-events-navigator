@@ -11,12 +11,11 @@ import com.intellij.psi.JavaPsiFacade
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiMethod
-import com.intellij.psi.impl.source.tree.LeafPsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.AnnotatedElementsSearch
 import com.intellij.psi.util.PsiUtilBase
 import com.intellij.ui.awt.RelativePoint
-import com.marcherdiego.events.navigator.domain.Callees
+import com.marcherdiego.events.navigator.domain.Callers
 import java.awt.event.MouseEvent
 
 class SubscribersKotlinLineMarker : LineMarkerProvider {
@@ -28,37 +27,54 @@ class SubscribersKotlinLineMarker : LineMarkerProvider {
 
     override fun getLineMarkerInfo(psiElement: PsiElement): LineMarkerInfo<*>? {
         init(psiElement)
-        return if (isSubscriptionMethod(psiElement)) {
-            LineMarkerInfo<PsiElement>(
-                    psiElement,
-                    psiElement.textRange,
-                    icon,
-                    Pass.LINE_MARKERS,
-                    null,
-                    GutterIconNavigationHandler<PsiElement> { e: MouseEvent, psiElement: PsiElement ->
-                        val callees = buildDependenciesGraph(psiElement) ?: return@GutterIconNavigationHandler
-                        val filter = FileFilter(callees.subscriberMethod)
-                        ShowUsagesAction(filter).startFindUsages(
-                                callees.constructorReference,
-                                RelativePoint(e),
-                                PsiUtilBase.findEditor(callees.subscriberMethod),
-                                Constants.MAX_USAGES
-                        )
-                    },
-                    GutterIconRenderer.Alignment.CENTER
+        return if (PsiUtils.isSubscriptionMethod(psiElement)) {
+            LineMarkerInfo(
+                psiElement,
+                psiElement.textRange,
+                icon,
+                Pass.LINE_MARKERS,
+                null,
+                GutterIconNavigationHandler { e: MouseEvent, psiElement: PsiElement ->
+                    val callers = buildDependenciesGraph(psiElement) ?: return@GutterIconNavigationHandler
+                    val filter = FileFilter(callers.subscriberMethod.containingFile.virtualFile)
+                    ShowUsagesAction(filter).startFindUsages(
+                        callers.constructorReference,
+                        RelativePoint(e),
+                        PsiUtilBase.findEditor(callers.subscriberMethod),
+                        Constants.MAX_USAGES
+                    )
+                },
+                GutterIconRenderer.Alignment.CENTER
+            )
+        } else if (PsiUtils.isEventBusPost(psiElement)) {
+            LineMarkerInfo(
+                psiElement,
+                psiElement.textRange,
+                icon1,
+                Pass.LINE_MARKERS,
+                null,
+                GutterIconNavigationHandler { e: MouseEvent, psiElement: PsiElement ->
+                    val callers = buildDependenciesGraph(psiElement) ?: return@GutterIconNavigationHandler
+                    val filter = FileFilter(callers.subscriberMethod.containingFile.virtualFile)
+                    ShowUsagesAction(filter).startFindUsages(
+                        callers.constructorReference,
+                        RelativePoint(e),
+                        PsiUtilBase.findEditor(callers.subscriberMethod),
+                        Constants.MAX_USAGES
+                    )
+                },
+                GutterIconRenderer.Alignment.CENTER
             )
         } else {
             null
         }
     }
 
-    private fun buildDependenciesGraph(psiElement: PsiElement): Callees? {
+    private fun buildDependenciesGraph(psiElement: PsiElement): Callers? {
         val subscriberMethod = findAnnotatedMethod(psiElement) ?: return null
         val parameter = subscriberMethod.parameterList.parameters.first()
         val parameterClass = javaPsiFacade.findClass(parameter.type.canonicalText, allScope) ?: return null
-        val elementCallees = Callees(subscriberMethod, parameter, mutableListOf())
-        elementCallees.constructorReference = parameterClass.constructors.first()
-        return elementCallees
+        return Callers(subscriberMethod, parameter, parameterClass.constructors.first())
     }
 
     private fun findAnnotatedMethod(psiElement: PsiElement): PsiMethod? {
@@ -73,21 +89,6 @@ class SubscribersKotlinLineMarker : LineMarkerProvider {
         }
     }
 
-    private fun isSubscriptionMethod(psiElement: PsiElement): Boolean {
-        val isLeaf = psiElement is LeafPsiElement
-        if (isLeaf.not()) {
-            return false
-        }
-        val isSubscribe = psiElement.text == "Subscribe"
-        if (isSubscribe.not()) {
-            return false
-        }
-        return psiElement.parent.prevSibling == null && psiElement.parent.nextSibling == null
-    }
-
-    override fun collectSlowLineMarkers(elements: MutableList<PsiElement>, result: MutableCollection<LineMarkerInfo<PsiElement>>) {
-    }
-
     private fun init(psiElement: PsiElement) {
         if (initDone.not()) {
             initDone = true
@@ -100,5 +101,6 @@ class SubscribersKotlinLineMarker : LineMarkerProvider {
 
     companion object {
         private val icon = IconLoader.getIcon("/icons/stateart.png")
+        private val icon1 = IconLoader.getIcon("/icons/stateart1.png")
     }
 }
