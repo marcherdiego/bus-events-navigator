@@ -100,9 +100,10 @@ import javax.swing.SwingUtilities
 import kotlin.math.max
 import kotlin.math.min
 
-class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
+class ShowUsagesAction(private val filter: Filter? = null) : AnAction(), PopupAction {
     private val myUsageViewSettings: UsageViewSettings
     private var mySearchEverywhereRunnable: Runnable? = null
+    private var myWidth = 0
 
     init {
         setInjectedContext(true)
@@ -149,8 +150,9 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         showElementUsages(handler, editor, popupPosition, maxUsages, getDefaultOptions(handler))
     }
 
-    private fun showElementUsages(handler: FindUsagesHandler, editor: Editor?, popupPosition: RelativePoint, maxUsages: Int,
-                                  options: FindUsagesOptions) {
+    private fun showElementUsages(
+        handler: FindUsagesHandler, editor: Editor?, popupPosition: RelativePoint, maxUsages: Int, options: FindUsagesOptions
+    ) {
         ApplicationManager.getApplication().assertIsDispatchThread()
         val usageViewSettings: UsageViewSettings = UsageViewSettings.instance
         val savedGlobalSettings = UsageViewSettings()
@@ -182,8 +184,8 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         val speedSearch = MySpeedSearch(table)
         speedSearch.comparator = SpeedSearchComparator(false)
         val popup = createUsagePopup(
-                usages, visibleNodes, handler, editor, popupPosition, maxUsages,
-                usageView, options, table, presentation, processIcon, hadMoreSeparator
+            usages, visibleNodes, handler, editor, popupPosition, maxUsages,
+            usageView, options, table, presentation, processIcon, hadMoreSeparator
         )
         Disposer.register(popup, usageView)
 
@@ -191,21 +193,21 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         val alarm = Alarm(usageView)
         alarm.addRequest({ showPopupIfNeedTo(popup, popupPosition) }, 300)
         val pingEDT = PingEDT(
-                Condition<Any> { o: Any? -> popup.isDisposed }, 100,
-                Runnable {
-                    if (popup.isDisposed) return@Runnable
-                    val nodes: MutableList<UsageNode> = ArrayList()
-                    var copy: List<Usage>
-                    synchronized(usages) {
-                        // open up popup as soon as several usages 've been found
-                        if (!popup.isVisible && (usages.size <= 1 || !showPopupIfNeedTo(popup, popupPosition))) {
-                            return@Runnable
-                        }
-                        addUsageNodes(usageView.root, usageView, nodes)
-                        copy = ArrayList(usages)
+            Condition<Any> { o: Any? -> popup.isDisposed }, 100,
+            Runnable {
+                if (popup.isDisposed) return@Runnable
+                val nodes: MutableList<UsageNode> = ArrayList()
+                var copy: List<Usage>
+                synchronized(usages) {
+                    // open up popup as soon as several usages 've been found
+                    if (!popup.isVisible && (usages.size <= 1 || !showPopupIfNeedTo(popup, popupPosition))) {
+                        return@Runnable
                     }
-                    rebuildPopup(usageView, copy, nodes, table, popup, presentation, popupPosition, !processIcon.isDisposed)
+                    addUsageNodes(usageView.root, usageView, nodes)
+                    copy = ArrayList(usages)
                 }
+                rebuildPopup(usageView, copy, nodes, table, popup, presentation, popupPosition, !processIcon.isDisposed)
+            }
         )
         val messageBusConnection = project.messageBus.connect(usageView)
         messageBusConnection.subscribe(UsageFilteringRuleProvider.RULES_CHANGED, Runnable { pingEDT.ping() })
@@ -214,7 +216,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
 
             override fun process(usage: Usage): Boolean {
                 synchronized(usages) {
-                    if (!filter.shouldShow(usage)) {
+                    if (filter?.shouldShow(usage) == false) {
                         return true
                     }
                     if (visibleNodes.size >= maxUsages) {
@@ -242,8 +244,8 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
             }
         }
         val indicator = FindUsagesManager.startProcessUsages(
-                handler, handler.primaryElements, handler.secondaryElements, collect, options, Runnable {
-            ApplicationManager.getApplication().invokeLater(
+            handler, handler.primaryElements, handler.secondaryElements, collect, options, Runnable {
+                ApplicationManager.getApplication().invokeLater(
                     Runnable {
                         Disposer.dispose(processIcon)
                         val parent = processIcon.parent
@@ -254,10 +256,10 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
                             if (visibleNodes.isEmpty()) {
                                 if (usages.isEmpty()) {
                                     val text = UsageViewBundle.message(
-                                            "no.usages.found.in", searchScopePresentableName(options)
+                                        "no.usages.found.in", searchScopePresentableName(options)
                                     )
                                     showHint(
-                                            text, editor, popupPosition, handler, maxUsages, options
+                                        text, editor, popupPosition, handler, maxUsages, options
                                     )
                                     popup.cancel()
                                 } else {
@@ -277,10 +279,10 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
                                     val visibleUsage = visibleNodes.iterator().next().usage
                                     if (areAllUsagesInOneLine(visibleUsage, usages)) {
                                         val hint = UsageViewBundle.message(
-                                                "all.usages.are.in.this.line", usages.size, searchScopePresentableName(options)
+                                            "all.usages.are.in.this.line", usages.size, searchScopePresentableName(options)
                                         )
                                         navigateAndHint(
-                                                visibleUsage, hint, handler, popupPosition, maxUsages, options
+                                            visibleUsage, hint, handler, popupPosition, maxUsages, options
                                         )
                                         popup.cancel()
                                     }
@@ -288,26 +290,26 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
                             } else {
                                 val title = presentation.tabText
                                 val shouldShowMoreSeparator = visibleNodes.contains(
-                                        MORE_USAGES_SEPARATOR_NODE
+                                    MORE_USAGES_SEPARATOR_NODE
                                 )
                                 val fullTitle = getFullTitle(
-                                        usages,
-                                        title,
-                                        shouldShowMoreSeparator,
-                                        visibleNodes.size - if (shouldShowMoreSeparator) {
-                                            1
-                                        } else {
-                                            0
-                                        },
-                                        false
+                                    usages,
+                                    title,
+                                    shouldShowMoreSeparator,
+                                    visibleNodes.size - if (shouldShowMoreSeparator) {
+                                        1
+                                    } else {
+                                        0
+                                    },
+                                    false
                                 )
                                 popup.setCaption(fullTitle)
                             }
                         }
                     },
                     project.disposed
-            )
-        }
+                )
+            }
         )
         Disposer.register(popup, Disposable { indicator.cancel() })
     }
@@ -345,21 +347,24 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         }
     }
 
-    private fun showHint(text: String, editor: Editor?, popupPosition: RelativePoint, handler: FindUsagesHandler, maxUsages: Int,
-                         options: FindUsagesOptions) {
+    private fun showHint(
+        text: String, editor: Editor?, popupPosition: RelativePoint, handler: FindUsagesHandler, maxUsages: Int, options: FindUsagesOptions
+    ) {
         val label = createHintComponent(text, handler, popupPosition, editor, HIDE_HINTS_ACTION, maxUsages, options)
         if (editor == null || editor.isDisposed) {
             HintManager.getInstance().showHint(
-                    label, popupPosition, HintManager.HIDE_BY_ANY_KEY or
-                    HintManager.HIDE_BY_TEXT_CHANGE or HintManager.HIDE_BY_SCROLLING, 0
+                label, popupPosition, HintManager.HIDE_BY_ANY_KEY or
+                        HintManager.HIDE_BY_TEXT_CHANGE or HintManager.HIDE_BY_SCROLLING, 0
             )
         } else {
             HintManager.getInstance().showInformationHint(editor, label)
         }
     }
 
-    private fun createHintComponent(text: String, handler: FindUsagesHandler, popupPosition: RelativePoint, editor: Editor?,
-                                    cancelAction: Runnable, maxUsages: Int, options: FindUsagesOptions): JComponent {
+    private fun createHintComponent(
+        text: String, handler: FindUsagesHandler, popupPosition: RelativePoint, editor: Editor?,
+        cancelAction: Runnable, maxUsages: Int, options: FindUsagesOptions
+    ): JComponent {
         val label = HintUtil.createInformationLabel(suggestSecondInvocation(options, handler, "$text&nbsp;"))
         val button = createSettingsButton(handler, popupPosition, editor, maxUsages, cancelAction)
         val panel: JPanel = object : JPanel(BorderLayout()) {
@@ -383,8 +388,9 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         return panel
     }
 
-    private fun createSettingsButton(handler: FindUsagesHandler, popupPosition: RelativePoint, editor: Editor?, maxUsages: Int,
-                                     cancelAction: Runnable): InplaceButton {
+    private fun createSettingsButton(
+        handler: FindUsagesHandler, popupPosition: RelativePoint, editor: Editor?, maxUsages: Int, cancelAction: Runnable
+    ): InplaceButton {
         var shortcutText = ""
         val shortcut = UsageViewImpl.getShowUsagesWithSettingsShortcut()
         if (shortcut != null) {
@@ -407,10 +413,11 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         }
     }
 
-    private fun createUsagePopup(usages: List<Usage>, visibleNodes: Set<UsageNode>, handler: FindUsagesHandler, editor: Editor?,
-                                 popupPosition: RelativePoint, maxUsages: Int, usageView: UsageViewImpl, options: FindUsagesOptions,
-                                 table: JTable, presentation: UsageViewPresentation, processIcon: AsyncProcessIcon,
-                                 hadMoreSeparator: Boolean): JBPopup {
+    private fun createUsagePopup(
+        usages: List<Usage>, visibleNodes: Set<UsageNode>, handler: FindUsagesHandler, editor: Editor?,
+        popupPosition: RelativePoint, maxUsages: Int, usageView: UsageViewImpl, options: FindUsagesOptions,
+        table: JTable, presentation: UsageViewPresentation, processIcon: AsyncProcessIcon, hadMoreSeparator: Boolean
+    ): JBPopup {
         table.rowHeight = PlatformIcons.CLASS_ICON.iconHeight + 2
         table.setShowGrid(false)
         table.showVerticalLines = false
@@ -422,7 +429,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         val title = presentation.tabText
         if (title != null) {
             val result = getFullTitle(
-                    usages, title, hadMoreSeparator, visibleNodes.size - 1, true
+                usages, title, hadMoreSeparator, visibleNodes.size - 1, true
             )
             builder.setTitle(result)
             builder.setAdText(getSecondInvocationTitle(options, handler))
@@ -471,15 +478,15 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         usageView.addFilteringActions(toolbar)
         toolbar.add(UsageGroupingRuleProviderImpl.createGroupByFileStructureAction(usageView))
         toolbar.add(object : AnAction(
-                "Open Find Usages Toolwindow", "Show all usages in a separate toolwindow", Toolwindows.ToolWindowFind
+            "Open Find Usages Toolwindow", "Show all usages in a separate toolwindow", Toolwindows.ToolWindowFind
         ) {
             override fun actionPerformed(e: AnActionEvent) {
                 hideHints()
                 popup.firstOrNull()?.cancel()
                 val findUsagesManager = (FindManager.getInstance(usageView.project) as FindManagerImpl).findUsagesManager
                 findUsagesManager.findUsages(
-                        handler.primaryElements, handler.secondaryElements, handler, options,
-                        FindSettings.getInstance().isSkipResultsWithOneUsage
+                    handler.primaryElements, handler.secondaryElements, handler, options,
+                    FindSettings.getInstance().isSkipResultsWithOneUsage
                 )
             }
 
@@ -496,8 +503,8 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         popup.add(builder.createPopup())
         val content = popup.first().content
         myWidth = (toolBar.preferredSize.getWidth() +
-                   JLabel(getFullTitle(usages, title, hadMoreSeparator, visibleNodes.size - 1, true)).preferredSize.getWidth() +
-                   settingsButton.preferredSize.getWidth()).toInt()
+                JLabel(getFullTitle(usages, title, hadMoreSeparator, visibleNodes.size - 1, true)).preferredSize.getWidth() +
+                settingsButton.preferredSize.getWidth()).toInt()
         myWidth = -1
         for (action in toolbar.getChildren(null)) {
             action.unregisterCustomShortcutSet(usageView.component)
@@ -506,26 +513,28 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         return popup.first()
     }
 
-    private fun searchEverywhere(options: FindUsagesOptions, handler: FindUsagesHandler, editor: Editor?, popupPosition: RelativePoint,
-                                 maxUsages: Int) {
+    private fun searchEverywhere(
+        options: FindUsagesOptions, handler: FindUsagesHandler, editor: Editor?, popupPosition: RelativePoint, maxUsages: Int
+    ) {
         val cloned = options.clone()
         cloned.searchScope = FindUsagesManager.getMaximalScope(handler)
         showElementUsages(handler, editor, popupPosition, maxUsages, cloned)
     }
 
-    private var myWidth = 0
-    private fun rebuildPopup(usageView: UsageViewImpl, usages: List<Usage>, nodes: MutableList<UsageNode>, table: JTable, popup: JBPopup,
-                             presentation: UsageViewPresentation, popupPosition: RelativePoint, findUsagesInProgress: Boolean) {
+    private fun rebuildPopup(
+        usageView: UsageViewImpl, usages: List<Usage>, nodes: MutableList<UsageNode>, table: JTable, popup: JBPopup,
+        presentation: UsageViewPresentation, popupPosition: RelativePoint, findUsagesInProgress: Boolean
+    ) {
         ApplicationManager.getApplication().assertIsDispatchThread()
         val shouldShowMoreSeparator = usages.contains(
-                MORE_USAGES_SEPARATOR
+            MORE_USAGES_SEPARATOR
         )
         if (shouldShowMoreSeparator) {
             nodes.add(MORE_USAGES_SEPARATOR_NODE)
         }
         val title = presentation.tabText
         val fullTitle = getFullTitle(
-                usages, title, shouldShowMoreSeparator, nodes.size - if (shouldShowMoreSeparator) 1 else 0, findUsagesInProgress
+            usages, title, shouldShowMoreSeparator, nodes.size - if (shouldShowMoreSeparator) 1 else 0, findUsagesInProgress
         )
         popup.setCaption(fullTitle)
         val data = collectData(usages, nodes, usageView, presentation)
@@ -580,21 +589,18 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
     }
 
     private fun appendMoreUsages(editor: Editor?, popupPosition: RelativePoint, handler: FindUsagesHandler, maxUsages: Int) {
-        showElementUsages(
-                handler, editor, popupPosition, maxUsages + USAGES_PAGE_SIZE,
-                getDefaultOptions(handler)
-        )
+        showElementUsages(handler, editor, popupPosition, maxUsages + USAGES_PAGE_SIZE, getDefaultOptions(handler))
     }
 
     private fun addUsageNodes(root: GroupNode, usageView: UsageViewImpl, outNodes: MutableList<UsageNode>) {
-        for (node in root.usageNodes) {
+        root.usageNodes.forEach { node ->
             val usage = node.usage
             if (usageView.isVisible(usage)) {
                 node.setParent(root)
                 outNodes.add(node)
             }
         }
-        for (groupNode in root.subGroups) {
+        root.subGroups.forEach { groupNode ->
             groupNode.setParent(root)
             addUsageNodes(groupNode, usageView, outNodes)
         }
@@ -604,8 +610,9 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         FindUsagesInFileAction.updateFindUsagesAction(e)
     }
 
-    private fun navigateAndHint(usage: Usage, hint: String?, handler: FindUsagesHandler, popupPosition: RelativePoint, maxUsages: Int,
-                                options: FindUsagesOptions) {
+    private fun navigateAndHint(
+        usage: Usage, hint: String?, handler: FindUsagesHandler, popupPosition: RelativePoint, maxUsages: Int, options: FindUsagesOptions
+    ) {
         usage.navigate(true)
         if (hint == null) {
             return
@@ -698,6 +705,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         private const val USAGES_PAGE_SIZE = 100
         val MORE_USAGES_SEPARATOR: NullUsage = NullUsage.INSTANCE
         private val MORE_USAGES_SEPARATOR_NODE = UsageViewImpl.NULL_NODE
+
         private val USAGE_NODE_COMPARATOR = Comparator { c1: UsageNode, c2: UsageNode ->
             if (c1 is StringNode) {
                 return@Comparator 1
@@ -729,14 +737,14 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         private fun chooseAmbiguousTargetAndPerform(project: Project, editor: Editor?, processor: PsiElementProcessor<PsiElement>) {
             if (editor == null) {
                 Messages.showMessageDialog(
-                        project, FindBundle.message("find.no.usages.at.cursor.error"),
-                        CommonBundle.getErrorTitle(), Messages.getErrorIcon()
+                    project, FindBundle.message("find.no.usages.at.cursor.error"),
+                    CommonBundle.getErrorTitle(), Messages.getErrorIcon()
                 )
             } else {
                 val offset = editor.caretModel.offset
                 val chosen = GotoDeclarationAction.chooseAmbiguousTarget(
-                        editor, offset, processor,
-                        FindBundle.message("find.usages.ambiguous.title", "crap"), null
+                    editor, offset, processor,
+                    FindBundle.message("find.usages.ambiguous.title", "crap"), null
                 )
                 if (!chosen) {
                     ApplicationManager.getApplication().invokeLater(Runnable {
@@ -775,8 +783,9 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
 
         private fun notNullizeScope(options: FindUsagesOptions) = options.searchScope
 
-        private fun getFullTitle(usages: List<Usage>, title: String, hadMoreSeparator: Boolean, visibleNodesCount: Int,
-                                 findUsagesInProgress: Boolean): String {
+        private fun getFullTitle(
+            usages: List<Usage>, title: String, hadMoreSeparator: Boolean, visibleNodesCount: Int, findUsagesInProgress: Boolean
+        ): String {
             val s = if (hadMoreSeparator) {
                 "<b>Some</b> $title <b>(Only $visibleNodesCount usages shown" + if (findUsagesInProgress) {
                     " so far"
@@ -794,12 +803,12 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         }
 
         private fun suggestSecondInvocation(options: FindUsagesOptions, handler: FindUsagesHandler, text: String): String {
-            var text = text
             val title = getSecondInvocationTitle(options, handler)
-            if (title != null) {
-                text += "<br><small>Press $title</small>"
+            return if (title == null) {
+                "<html><body>$text</body></html>"
+            } else {
+                "$text<br><small>Press $title</small>"
             }
-            return "<html><body>$text</body></html>"
         }
 
         private fun getSecondInvocationTitle(options: FindUsagesOptions, handler: FindUsagesHandler): String? {
@@ -807,7 +816,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
                 val maximalScope = FindUsagesManager.getMaximalScope(handler)
                 if (notNullizeScope(options) != maximalScope) {
                     return "Press " + KeymapUtil.getShortcutText(
-                            showUsagesShortcut ?: return null
+                        showUsagesShortcut ?: return null
                     ) + " again to search in " + maximalScope.displayName
                 }
             }
@@ -857,9 +866,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
             return true
         }
 
-        private fun setTableModel(table: JTable,
-                                  usageView: UsageViewImpl,
-                                  data: List<UsageNode>): MyModel {
+        private fun setTableModel(table: JTable, usageView: UsageViewImpl, data: List<UsageNode>): MyModel {
             ApplicationManager.getApplication().assertIsDispatchThread()
             val columnCount = calcColumnCount(data)
             var model = if (table.model is MyModel) {
@@ -887,10 +894,12 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
             }
         }
 
-        private fun collectData(usages: List<Usage>,
-                                visibleNodes: Collection<UsageNode>,
-                                usageView: UsageViewImpl,
-                                presentation: UsageViewPresentation): List<UsageNode> {
+        private fun collectData(
+            usages: List<Usage>,
+            visibleNodes: Collection<UsageNode>,
+            usageView: UsageViewImpl,
+            presentation: UsageViewPresentation
+        ): List<UsageNode> {
             val data: MutableList<UsageNode> = ArrayList()
             val filtered = filtered(usages, usageView)
             if (filtered != 0) {

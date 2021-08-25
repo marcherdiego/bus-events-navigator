@@ -27,6 +27,7 @@ class SubscribersKotlinLineMarker : LineMarkerProvider {
 
     override fun getLineMarkerInfo(psiElement: PsiElement): LineMarkerInfo<*>? {
         init(psiElement)
+        PsiUtils.init(psiElement.project)
         return if (PsiUtils.isSubscriptionMethod(psiElement)) {
             LineMarkerInfo(
                 psiElement,

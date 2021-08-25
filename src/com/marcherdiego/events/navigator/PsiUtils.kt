@@ -1,18 +1,23 @@
 package com.marcherdiego.events.navigator
 
 import com.intellij.lang.Language
-import com.intellij.psi.PsiCallExpression
+import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiElement
 import com.intellij.psi.impl.source.tree.ElementType
 import com.intellij.psi.impl.source.tree.LeafPsiElement
-import com.intellij.psi.impl.source.tree.java.PsiIdentifierImpl
-import com.intellij.psi.impl.source.tree.java.PsiMethodCallExpressionImpl
-import com.intellij.psi.impl.source.tree.java.PsiReferenceExpressionImpl
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.PsiShortNamesCache
 
 object PsiUtils {
+    private lateinit var psiShortNamesCache: PsiShortNamesCache
+    private lateinit var allScope: GlobalSearchScope
+
+    fun init(project: Project) {
+        psiShortNamesCache = PsiShortNamesCache.getInstance(project)
+        allScope = GlobalSearchScope.allScope(project)
+    }
+
     fun isSubscriptionMethod(psiElement: PsiElement): Boolean {
         val isLeaf = psiElement is LeafPsiElement
         if (isLeaf.not()) {
@@ -31,39 +36,27 @@ object PsiUtils {
 
     fun isEventBusPost(psiElement: PsiElement): Boolean {
         if (isJava(psiElement)) {
-            if (psiElement is PsiMethodCallExpressionImpl && psiElement.getFirstChild() != null && psiElement.getFirstChild() is PsiReferenceExpressionImpl) {
-                val all = psiElement.getFirstChild() as PsiReferenceExpressionImpl
-                if (all.firstChild is PsiMethodCallExpressionImpl && all.lastChild is PsiIdentifierImpl) {
-                    val start = all.firstChild as PsiMethodCallExpressionImpl
-                    val post = all.lastChild as PsiIdentifierImpl
-                    if (safeEquals(post.text, Constants.FUN_NAME) || safeEquals(post.text, Constants.FUN_NAME2)) {
-                        return true
-                    }
+            if (psiElement is LeafPsiElement && psiElement.elementType.toString() == ElementType.IDENTIFIER.toString()) {
+                val elementName = psiElement.text
+                val isPostingEvent = psiElement.parent.parent.parent.parent.parent.text.matches(".*post.*( .*new .*$elementName(.*).*)".toRegex())
+                if (isPostingEvent.not()) {
+                    return false
                 }
-            }
-            if (psiElement is PsiCallExpression) {
-                val method = psiElement.resolveMethod()
-                if (method != null) {
-                    val name = method.name
-                    val parent = method.parent
-                    if ((safeEquals(Constants.FUN_NAME, name) || safeEquals(Constants.FUN_NAME2, name)) && parent is PsiClass) {
-                        return isEventBusClass(parent) || isSuperClassEventBus(parent)
-                    }
+                val candidateClasses = psiShortNamesCache.getClassesByName(elementName, allScope)
+                if (candidateClasses.isNotEmpty()) {
+                    return true
                 }
             }
         } else if (isKotlin(psiElement)) {
-            val project = psiElement.project
             val clazz = psiElement.javaClass
             if (clazz.toString().contains("com.intellij.psi")) {
                 if (psiElement is LeafPsiElement && psiElement.elementType.toString() == ElementType.IDENTIFIER.toString()) {
                     val elementName = psiElement.text
-                    val isPostingEvent = psiElement.parent.parent.parent.parent.parent.text.matches("post.*($elementName(.*).*)".toRegex())
+                    val isPostingEvent = psiElement.parent.parent.parent.parent.parent.text.matches(".*post.*($elementName(.*).*)".toRegex())
                     if (isPostingEvent.not()) {
                         return false
                     }
-                    val candidateClasses = PsiShortNamesCache
-                        .getInstance(project)
-                        .getClassesByName(elementName, GlobalSearchScope.allScope(project))
+                    val candidateClasses = psiShortNamesCache.getClassesByName(elementName, allScope)
                     if (candidateClasses.isNotEmpty()) {
                         return true
                     }
