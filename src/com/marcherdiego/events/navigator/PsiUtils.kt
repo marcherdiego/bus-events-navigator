@@ -8,6 +8,7 @@ import com.intellij.psi.impl.source.tree.ElementType
 import com.intellij.psi.impl.source.tree.LeafPsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.PsiShortNamesCache
+import kotlin.text.RegexOption.DOT_MATCHES_ALL
 
 object PsiUtils {
     private lateinit var psiShortNamesCache: PsiShortNamesCache
@@ -38,7 +39,10 @@ object PsiUtils {
         if (isJava(psiElement)) {
             if (psiElement is LeafPsiElement && psiElement.elementType.toString() == ElementType.IDENTIFIER.toString()) {
                 val elementName = psiElement.text
-                val isPostingEvent = psiElement.parent.parent.parent.parent.parent.text.matches(".*post.*( .*new .*$elementName(.*).*)".toRegex())
+                System.err.println("Checking ORIGIN element ${psiElement.text}")
+                val isPostingEvent = anyParentMatches(psiElement, ".*\\.(post|postSticky).*(.*new .*$elementName(.*).*)".toRegex(DOT_MATCHES_ALL))
+                System.err.println()
+                System.err.println()
                 if (isPostingEvent.not()) {
                     return false
                 }
@@ -52,7 +56,7 @@ object PsiUtils {
             if (clazz.toString().contains("com.intellij.psi")) {
                 if (psiElement is LeafPsiElement && psiElement.elementType.toString() == ElementType.IDENTIFIER.toString()) {
                     val elementName = psiElement.text
-                    val isPostingEvent = psiElement.parent.parent.parent.parent.parent.text.matches(".*post.*($elementName(.*).*)".toRegex())
+                    val isPostingEvent = anyParentMatches(psiElement, ".*\\.(post|postSticky).*($elementName(.*).*)".toRegex(DOT_MATCHES_ALL))
                     if (isPostingEvent.not()) {
                         return false
                     }
@@ -64,6 +68,24 @@ object PsiUtils {
             }
         }
         return false
+    }
+
+    private fun anyParentMatches(psiElement: PsiElement, regex: Regex): Boolean {
+        val parent = psiElement.parent
+        return when {
+            parent == null -> {
+                false
+            }
+            parent.text.contains("{").not() && parent.text.matches(regex) -> {
+                System.err.println()
+                System.err.println("Checking element ${parent.text} -> MATCHED")
+                true
+            }
+            else -> {
+                System.err.print(".")
+                anyParentMatches(parent, regex)
+            }
+        }
     }
 
     private fun isEventBusClass(psiClass: PsiClass) = safeEquals(psiClass.name, Constants.FUN_EVENT_CLASS_NAME)

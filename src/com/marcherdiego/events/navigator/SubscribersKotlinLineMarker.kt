@@ -12,6 +12,7 @@ import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.search.PsiShortNamesCache
 import com.intellij.psi.search.searches.AnnotatedElementsSearch
 import com.intellij.psi.util.PsiUtilBase
 import com.intellij.ui.awt.RelativePoint
@@ -23,6 +24,7 @@ class SubscribersKotlinLineMarker : LineMarkerProvider {
     private var initDone = false
     private lateinit var subscribeAnnotationClass: PsiClass
     private lateinit var javaPsiFacade: JavaPsiFacade
+    private lateinit var psiShortNamesCache: PsiShortNamesCache
     private lateinit var allScope: GlobalSearchScope
 
     override fun getLineMarkerInfo(psiElement: PsiElement): LineMarkerInfo<*>? {
@@ -55,12 +57,14 @@ class SubscribersKotlinLineMarker : LineMarkerProvider {
                 Pass.LINE_MARKERS,
                 null,
                 GutterIconNavigationHandler { e: MouseEvent, psiElement: PsiElement ->
-                    val callers = buildDependenciesGraph(psiElement) ?: return@GutterIconNavigationHandler
-                    val filter = FileFilter(callers.subscriberMethod.containingFile.virtualFile)
+                    val elementName = psiElement.text
+                    val candidateClasses = psiShortNamesCache.getClassesByName(elementName, allScope)
+                    val constructor = candidateClasses.first()
+                    val filter = FileFilter(constructor.containingFile.virtualFile)
                     ShowUsagesAction(filter).startFindUsages(
-                        callers.constructorReference,
+                        candidateClasses.first(),
                         RelativePoint(e),
-                        PsiUtilBase.findEditor(callers.subscriberMethod),
+                        PsiUtilBase.findEditor(constructor),
                         Constants.MAX_USAGES
                     )
                 },
@@ -95,6 +99,7 @@ class SubscribersKotlinLineMarker : LineMarkerProvider {
             initDone = true
 
             javaPsiFacade = JavaPsiFacade.getInstance(psiElement.project)
+            psiShortNamesCache = PsiShortNamesCache.getInstance(psiElement.project)
             allScope = GlobalSearchScope.allScope(psiElement.project)
             subscribeAnnotationClass = javaPsiFacade.findClass("org.greenrobot.eventbus.Subscribe", allScope) ?: return
         }

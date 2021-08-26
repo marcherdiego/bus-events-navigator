@@ -100,7 +100,7 @@ import javax.swing.SwingUtilities
 import kotlin.math.max
 import kotlin.math.min
 
-class ShowUsagesAction(private val filter: Filter? = null) : AnAction(), PopupAction {
+class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
     private val myUsageViewSettings: UsageViewSettings
     private var mySearchEverywhereRunnable: Runnable? = null
     private var myWidth = 0
@@ -216,7 +216,7 @@ class ShowUsagesAction(private val filter: Filter? = null) : AnAction(), PopupAc
 
             override fun process(usage: Usage): Boolean {
                 synchronized(usages) {
-                    if (filter?.shouldShow(usage) == false) {
+                    if (filter.shouldShow(usage).not()) {
                         return true
                     }
                     if (visibleNodes.size >= maxUsages) {

@@ -60,7 +60,8 @@ class SubscribersJavaLineMarker : LineMarkerProvider {
                     val elementName = psiElement.text
                     val candidateClasses = psiShortNamesCache.getClassesByName(elementName, allScope)
                     val constructor = candidateClasses.first()
-                    ShowUsagesAction().startFindUsages(
+                    val filter = FileFilter(constructor.containingFile.virtualFile)
+                    ShowUsagesAction(filter).startFindUsages(
                         candidateClasses.first(),
                         RelativePoint(e),
                         PsiUtilBase.findEditor(constructor),
