@@ -30,48 +30,52 @@ class SubscribersKotlinLineMarker : LineMarkerProvider {
     override fun getLineMarkerInfo(psiElement: PsiElement): LineMarkerInfo<*>? {
         init(psiElement)
         PsiUtils.init(psiElement.project)
-        return if (PsiUtils.isSubscriptionMethod(psiElement)) {
-            LineMarkerInfo(
-                psiElement,
-                psiElement.textRange,
-                icon,
-                Pass.LINE_MARKERS,
-                null,
-                GutterIconNavigationHandler { e: MouseEvent, psiElement: PsiElement ->
-                    val callers = buildDependenciesGraph(psiElement) ?: return@GutterIconNavigationHandler
-                    val filter = FileFilter(callers.subscriberMethod.containingFile.virtualFile)
-                    ShowUsagesAction(filter).startFindUsages(
-                        callers.constructorReference,
-                        RelativePoint(e),
-                        PsiUtilBase.findEditor(callers.subscriberMethod),
-                        Constants.MAX_USAGES
-                    )
-                },
-                GutterIconRenderer.Alignment.CENTER
-            )
-        } else if (PsiUtils.isEventBusPost(psiElement)) {
-            LineMarkerInfo(
-                psiElement,
-                psiElement.textRange,
-                icon1,
-                Pass.LINE_MARKERS,
-                null,
-                GutterIconNavigationHandler { e: MouseEvent, psiElement: PsiElement ->
-                    val elementName = psiElement.text
-                    val candidateClasses = psiShortNamesCache.getClassesByName(elementName, allScope)
-                    val constructor = candidateClasses.first()
-                    val filter = FileFilter(constructor.containingFile.virtualFile)
-                    ShowUsagesAction(filter).startFindUsages(
-                        candidateClasses.first(),
-                        RelativePoint(e),
-                        PsiUtilBase.findEditor(constructor),
-                        Constants.MAX_USAGES
-                    )
-                },
-                GutterIconRenderer.Alignment.CENTER
-            )
-        } else {
-            null
+        return when {
+            PsiUtils.isSubscriptionMethod(psiElement) -> {
+                LineMarkerInfo(
+                    psiElement,
+                    psiElement.textRange,
+                    icon,
+                    Pass.LINE_MARKERS,
+                    null,
+                    GutterIconNavigationHandler { e: MouseEvent, psiElement: PsiElement ->
+                        val callers = buildDependenciesGraph(psiElement) ?: return@GutterIconNavigationHandler
+                        val filter = FileFilter(callers.subscriberMethod.containingFile.virtualFile)
+                        ShowUsagesAction(filter).startFindUsages(
+                            callers.constructorReference,
+                            RelativePoint(e),
+                            PsiUtilBase.findEditor(callers.subscriberMethod),
+                            Constants.MAX_USAGES
+                        )
+                    },
+                    GutterIconRenderer.Alignment.CENTER
+                )
+            }
+            PsiUtils.isEventBusPost(psiElement) -> {
+                LineMarkerInfo(
+                    psiElement,
+                    psiElement.textRange,
+                    icon1,
+                    Pass.LINE_MARKERS,
+                    null,
+                    GutterIconNavigationHandler { e: MouseEvent, psiElement: PsiElement ->
+                        val elementName = psiElement.text
+                        val candidateClasses = psiShortNamesCache.getClassesByName(elementName, allScope)
+                        val constructor = candidateClasses.first()
+                        val filter = FileFilter(constructor.containingFile.virtualFile)
+                        ShowUsagesAction(filter).startFindUsages(
+                            candidateClasses.first(),
+                            RelativePoint(e),
+                            PsiUtilBase.findEditor(constructor),
+                            Constants.MAX_USAGES
+                        )
+                    },
+                    GutterIconRenderer.Alignment.CENTER
+                )
+            }
+            else -> {
+                null
+            }
         }
     }
 
@@ -79,7 +83,7 @@ class SubscribersKotlinLineMarker : LineMarkerProvider {
         val subscriberMethod = findAnnotatedMethod(psiElement) ?: return null
         val parameter = subscriberMethod.parameterList.parameters.first()
         val parameterClass = javaPsiFacade.findClass(parameter.type.canonicalText, allScope) ?: return null
-        return Callers(subscriberMethod, parameter, parameterClass.constructors.first())
+        return Callers(subscriberMethod, parameterClass.constructors.first())
     }
 
     private fun findAnnotatedMethod(psiElement: PsiElement): PsiMethod? {

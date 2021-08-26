@@ -255,12 +255,8 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
                         synchronized(usages) {
                             if (visibleNodes.isEmpty()) {
                                 if (usages.isEmpty()) {
-                                    val text = UsageViewBundle.message(
-                                        "no.usages.found.in", searchScopePresentableName(options)
-                                    )
-                                    showHint(
-                                        text, editor, popupPosition, handler, maxUsages, options
-                                    )
+                                    val text = UsageViewBundle.message("no.usages.found.in", searchScopePresentableName(options))
+                                    showHint(text, editor, popupPosition, handler, maxUsages, options)
                                     popup.cancel()
                                 } else {
                                     // all usages filtered out
@@ -281,17 +277,13 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
                                         val hint = UsageViewBundle.message(
                                             "all.usages.are.in.this.line", usages.size, searchScopePresentableName(options)
                                         )
-                                        navigateAndHint(
-                                            visibleUsage, hint, handler, popupPosition, maxUsages, options
-                                        )
+                                        navigateAndHint(visibleUsage, hint, handler, popupPosition, maxUsages, options)
                                         popup.cancel()
                                     }
                                 }
                             } else {
                                 val title = presentation.tabText
-                                val shouldShowMoreSeparator = visibleNodes.contains(
-                                    MORE_USAGES_SEPARATOR_NODE
-                                )
+                                val shouldShowMoreSeparator = visibleNodes.contains(MORE_USAGES_SEPARATOR_NODE)
                                 val fullTitle = getFullTitle(
                                     usages,
                                     title,
@@ -353,8 +345,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         val label = createHintComponent(text, handler, popupPosition, editor, HIDE_HINTS_ACTION, maxUsages, options)
         if (editor == null || editor.isDisposed) {
             HintManager.getInstance().showHint(
-                label, popupPosition, HintManager.HIDE_BY_ANY_KEY or
-                        HintManager.HIDE_BY_TEXT_CHANGE or HintManager.HIDE_BY_SCROLLING, 0
+                label, popupPosition, HintManager.HIDE_BY_ANY_KEY or HintManager.HIDE_BY_TEXT_CHANGE or HintManager.HIDE_BY_SCROLLING, 0
             )
         } else {
             HintManager.getInstance().showInformationHint(editor, label)
@@ -428,9 +419,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         val builder: PopupChooserBuilder<*> = PopupChooserBuilder<Any?>(table)
         val title = presentation.tabText
         if (title != null) {
-            val result = getFullTitle(
-                usages, title, hadMoreSeparator, visibleNodes.size - 1, true
-            )
+            val result = getFullTitle(usages, title, hadMoreSeparator, visibleNodes.size - 1, true)
             builder.setTitle(result)
             builder.setAdText(getSecondInvocationTitle(options, handler))
         }
@@ -526,9 +515,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         presentation: UsageViewPresentation, popupPosition: RelativePoint, findUsagesInProgress: Boolean
     ) {
         ApplicationManager.getApplication().assertIsDispatchThread()
-        val shouldShowMoreSeparator = usages.contains(
-            MORE_USAGES_SEPARATOR
-        )
+        val shouldShowMoreSeparator = usages.contains(MORE_USAGES_SEPARATOR)
         if (shouldShowMoreSeparator) {
             nodes.add(MORE_USAGES_SEPARATOR_NODE)
         }
@@ -577,7 +564,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         }
         table.size = dimension
         val footerSize = popup.footerPreferredSize
-        val newHeight = (dimension.height + headerSize.getHeight() + footerSize.getHeight()).toInt() + 4 /* invisible borders, margins etc*/
+        val newHeight = (dimension.height + headerSize.getHeight() + footerSize.getHeight()).toInt() + 4
         val newDim = Dimension(dimension.width, newHeight)
         window.size = newDim
         window.minimumSize = newDim
