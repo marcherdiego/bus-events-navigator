@@ -19,12 +19,10 @@ object PsiUtils {
     }
 
     fun isSubscriptionMethod(psiElement: PsiElement): Boolean {
-        val isLeaf = psiElement is LeafPsiElement
-        if (isLeaf.not()) {
+        if (psiElement !is LeafPsiElement) {
             return false
         }
-        val isSubscribe = psiElement.text == "Subscribe"
-        if (isSubscribe.not()) {
+        if (psiElement.text != "Subscribe") {
             return false
         }
         return if (isKotlin(psiElement)) {
@@ -35,49 +33,41 @@ object PsiUtils {
     }
 
     fun isEventBusPost(psiElement: PsiElement): Boolean {
-        if (isJava(psiElement)) {
-            if (psiElement is LeafPsiElement && psiElement.elementType.toString() == ElementType.IDENTIFIER.toString()) {
-                val elementName = psiElement.text
-                val isPostingEvent =
-                    anyParentMatches(psiElement, ".*\\.(post|postSticky).*(.*new .*$elementName(.*).*)".toRegex(DOT_MATCHES_ALL))
-                if (isPostingEvent.not()) {
-                    return false
-                }
-                val candidateClasses = psiShortNamesCache.getClassesByName(elementName, allScope)
-                if (candidateClasses.isNotEmpty()) {
-                    return true
-                }
-            }
-        } else if (isKotlin(psiElement)) {
-            val clazz = psiElement.javaClass
-            if (clazz.toString().contains("com.intellij.psi")) {
-                if (psiElement is LeafPsiElement && psiElement.elementType.toString() == ElementType.IDENTIFIER.toString()) {
-                    val elementName = psiElement.text
-                    val isPostingEvent =
-                        anyParentMatches(psiElement, ".*\\.(post|postSticky).*($elementName(.*).*)".toRegex(DOT_MATCHES_ALL))
-                    if (isPostingEvent.not()) {
-                        return false
-                    }
-                    val candidateClasses = psiShortNamesCache.getClassesByName(elementName, allScope)
-                    if (candidateClasses.isNotEmpty()) {
-                        return true
-                    }
-                }
-            }
+        if (isLeafIdentifier(psiElement).not()) {
+            return false
         }
-        return false
+        val elementName = psiElement.text
+        val matchingRegex = if (isJava(psiElement)) {
+            getJavaPostingRegex(elementName)
+        } else if (isKotlin(psiElement) && psiElement.javaClass.toString().contains("com.intellij.psi")) {
+            geKotlinPostingRegex(elementName)
+        } else {
+            return false
+        }
+        if (anyParentMatches(psiElement, matchingRegex).not()) {
+            return false
+        }
+        return psiShortNamesCache.getClassesByName(elementName, allScope).isNotEmpty()
     }
 
     private fun anyParentMatches(psiElement: PsiElement, regex: Regex): Boolean {
         val parent = psiElement.parent
         return when {
             parent == null -> false
-            parent.text.contains("{").not() && parent.text.matches(regex) -> true
+            parent.text.contains("{").not() && parent.text.contains("import").not() && parent.text.matches(regex) -> true
             else -> anyParentMatches(parent, regex)
         }
     }
 
-    fun isKotlin(psiElement: PsiElement) = psiElement.language.`is`(Language.findLanguageByID("kotlin"))
+    private fun isKotlin(psiElement: PsiElement) = psiElement.language.`is`(Language.findLanguageByID("kotlin"))
 
-    fun isJava(psiElement: PsiElement) = psiElement.language.`is`(Language.findLanguageByID("JAVA"))
+    private fun isJava(psiElement: PsiElement) = psiElement.language.`is`(Language.findLanguageByID("JAVA"))
+
+    private fun isLeafIdentifier(psiElement: PsiElement): Boolean {
+        return psiElement is LeafPsiElement && psiElement.elementType.toString() == ElementType.IDENTIFIER.toString()
+    }
+
+    private fun geKotlinPostingRegex(elementName: String) = ".*\\.(post|postSticky).*($elementName(.*).*)".toRegex(DOT_MATCHES_ALL)
+
+    private fun getJavaPostingRegex(elementName: String) = ".*\\.(post|postSticky).*(.*new .*$elementName(.*).*)".toRegex(DOT_MATCHES_ALL)
 }
