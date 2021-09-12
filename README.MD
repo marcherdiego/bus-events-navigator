@@ -13,6 +13,8 @@
 - This plugin supports both Java and Kotlin and adapts to any kind of applications! Give it a try!
 
 ### Example usage
-| Java                                  	| Kotlin                                    	|
-|---------------------------------------	|-------------------------------------------	|
-| <img alt='Java' src='gifs/java.gif'/> 	| <img alt='Kotlin' src='gifs/kotlin.gif'/> 	|
+#### Java
+<img alt='Java' src='gifs/java.gif'/>
+
+#### Kotlin
+<img alt='Kotlin' src='gifs/kotlin.gif'/>
