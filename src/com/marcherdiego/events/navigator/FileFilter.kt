@@ -19,5 +19,9 @@ class FileFilter internal constructor(virtualFile: VirtualFile) : Filter {
         }
     }
 
-    private fun isNotImport(usage: Usage) = usage.toString().contains("|import|").not()
+    private fun isNotImport(usage: Usage) = usage.toString().contains(IMPORT).not()
+
+    companion object {
+        private const val IMPORT = "|import|"
+    }
 }

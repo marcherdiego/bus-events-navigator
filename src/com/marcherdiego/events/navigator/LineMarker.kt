@@ -29,14 +29,14 @@ class LineMarker : LineMarkerProvider {
     private lateinit var allScope: GlobalSearchScope
 
     private fun init(psiElement: PsiElement) {
-        val project = psiElement.project
         if (initDone.not()) {
             initDone = true
 
+            val project = psiElement.project
             javaPsiFacade = JavaPsiFacade.getInstance(project)
             psiShortNamesCache = PsiShortNamesCache.getInstance(project)
             allScope = GlobalSearchScope.allScope(project)
-            subscribeAnnotationClass = javaPsiFacade.findClass("org.greenrobot.eventbus.Subscribe", allScope) ?: return
+            subscribeAnnotationClass = javaPsiFacade.findClass(SUBSCRIBE_CLASS_NAME, allScope) ?: return
         }
     }
 
@@ -48,7 +48,8 @@ class LineMarker : LineMarkerProvider {
                 val subscriberMethod = findAnnotatedMethod(psiElement) ?: return null
                 val methodParameter = subscriberMethod.parameterList.parameters.firstOrNull() ?: return null
                 val eventName = (methodParameter.type as? PsiClassReferenceType)?.name
-                buildLineMarkerInfo(psiElement, subscribersIcon, "Subscribes to $eventName event.\nClick here to navigate to the poster(s)") { ev, _ ->
+                val tooltip = "Subscribes to $eventName event.\nClick here to navigate to the poster(s)"
+                buildLineMarkerInfo(psiElement, subscribersIcon, tooltip) { ev, _ ->
                     val callers = buildDependenciesGraph(subscriberMethod) ?: return@buildLineMarkerInfo
                     val filter = FileFilter(callers.subscriberMethod.containingFile.virtualFile)
                     ShowUsagesAction(filter).startFindUsages(
@@ -60,14 +61,14 @@ class LineMarker : LineMarkerProvider {
                 }
             }
             PsiUtils.isEventBusPost(psiElement) -> {
-                val eventName = PsiUtils.getSubscribedEventName(psiElement)
-                buildLineMarkerInfo(psiElement, postersIcon, "Posts $eventName event.\nClick here to navigate to its subscriber(s)") { ev, element ->
+                val eventName = psiElement.text
+                val tooltip = "Posts $eventName event.\nClick here to navigate to its subscriber(s)"
+                buildLineMarkerInfo(psiElement, postersIcon, tooltip) { ev, element ->
                     val elementName = element.text
-                    val candidateClasses = psiShortNamesCache.getClassesByName(elementName, allScope)
-                    val constructor = candidateClasses.first()
+                    val constructor = psiShortNamesCache.getClassesByName(elementName, allScope).firstOrNull() ?: return@buildLineMarkerInfo
                     val filter = FileFilter(constructor.containingFile.virtualFile)
                     ShowUsagesAction(filter).startFindUsages(
-                        candidateClasses.first(),
+                        constructor,
                         RelativePoint(ev),
                         PsiUtilBase.findEditor(constructor),
                         Constants.MAX_USAGES
@@ -108,5 +109,7 @@ class LineMarker : LineMarkerProvider {
         val postersIcon = IconLoader.getIcon("/icons/posters.svg")
         @JvmField
         val subscribersIcon = IconLoader.getIcon("/icons/subscribers.svg")
+
+        private const val SUBSCRIBE_CLASS_NAME = "org.greenrobot.eventbus.Subscribe"
     }
 }

@@ -10,6 +10,9 @@ import com.intellij.psi.search.PsiShortNamesCache
 import kotlin.text.RegexOption.DOT_MATCHES_ALL
 
 object PsiUtils {
+    private val javaLanguage = Language.findLanguageByID("JAVA")
+    private val kotlinLanguage = Language.findLanguageByID("kotlin")
+
     private var initDone = false
     private lateinit var psiShortNamesCache: PsiShortNamesCache
     private lateinit var allScope: GlobalSearchScope
@@ -24,21 +27,13 @@ object PsiUtils {
     }
 
     fun isSubscriptionMethod(psiElement: PsiElement): Boolean {
-        if (psiElement !is LeafPsiElement || psiElement.text != "Subscribe") {
+        if (psiElement !is LeafPsiElement || psiElement.text != Constants.SUBSCRIBE) {
             return false
         }
         return if (isKotlin(psiElement)) {
             psiElement.parent.prevSibling == null && psiElement.parent.nextSibling == null
         } else {
-            psiElement.parent.prevSibling?.text == "@"
-        }
-    }
-
-    fun getSubscribedEventName(psiElement: PsiElement): String {
-        return if (isKotlin(psiElement)) {
-            psiElement.text
-        } else {
-            psiElement.text
+            psiElement.parent.prevSibling?.text == Constants.AT
         }
     }
 
@@ -49,7 +44,7 @@ object PsiUtils {
         val elementName = psiElement.text
         val matchingRegex = when {
             isJava(psiElement) -> getJavaPostingRegex(elementName)
-            isKotlin(psiElement) && psiElement.javaClass.toString().contains("com.intellij.psi") -> geKotlinPostingRegex(elementName)
+            isKotlin(psiElement) && psiElement.javaClass.toString().contains(Constants.PSI_PACKAGE) -> geKotlinPostingRegex(elementName)
             else -> return false
         }
         if (anyParentMatches(psiElement, matchingRegex).not()) {
@@ -62,14 +57,15 @@ object PsiUtils {
         val parent = psiElement.parent
         return when {
             parent == null -> false
-            parent.text.contains("{").not() && parent.text.contains("import").not() && parent.text.matches(regex) -> true
+            parent.text.contains(Constants.OPEN_BRACKET).not() &&
+                    parent.text.contains(Constants.IMPORT).not() && parent.text.matches(regex) -> true
             else -> anyParentMatches(parent, regex)
         }
     }
 
-    private fun isKotlin(psiElement: PsiElement) = psiElement.language.`is`(Language.findLanguageByID("kotlin"))
+    private fun isKotlin(psiElement: PsiElement) = psiElement.language.`is`(kotlinLanguage)
 
-    private fun isJava(psiElement: PsiElement) = psiElement.language.`is`(Language.findLanguageByID("JAVA"))
+    private fun isJava(psiElement: PsiElement) = psiElement.language.`is`(javaLanguage)
 
     private fun isLeafIdentifier(psiElement: PsiElement): Boolean {
         return psiElement is LeafPsiElement && psiElement.elementType.toString() == ElementType.IDENTIFIER.toString()
