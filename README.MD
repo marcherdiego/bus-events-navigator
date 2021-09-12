@@ -12,6 +12,12 @@
 - Navigate though posters and subscribers easily to keep track of your MVP flow.
 - This plugin supports both Java and Kotlin and adapts to any kind of applications! Give it a try!
 
+### Posters and Subscribers
+Lines are marked with <img alt='Java' src='resources/icons/posters.svg'/> or <img alt='Java' src='resources/icons/subscribers.svg'/> depending on whether they `post` an event or `subscribe` to an event
+|            Poster lines are identified with this icon            	|            Subscriber lines are identified with this icon            	|
+|:----------------------------------------------------------------:	|:--------------------------------------------------------------------:	|
+| <img alt='Java' src='resources/icons/posters.svg' height='100'/> 	| <img alt='Java' src='resources/icons/subscribers.svg' height='100'/> 	|
+
 ### Example usage
 #### Java
 <img alt='Java' src='gifs/java.gif'/>
