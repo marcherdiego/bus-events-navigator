@@ -1,6 +1,5 @@
 package com.marcherdiego.events.navigator
 
-import com.intellij.codeHighlighting.Pass
 import com.intellij.codeInsight.daemon.LineMarkerInfo
 import com.intellij.codeInsight.daemon.LineMarkerProvider
 import com.intellij.openapi.editor.markup.GutterIconRenderer
@@ -14,7 +13,7 @@ import com.intellij.psi.impl.source.PsiClassReferenceType
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.PsiShortNamesCache
 import com.intellij.psi.search.searches.AnnotatedElementsSearch
-import com.intellij.psi.util.PsiUtilBase
+import com.intellij.psi.util.PsiEditorUtil
 import com.intellij.ui.awt.RelativePoint
 import com.marcherdiego.events.navigator.domain.Callers
 import java.awt.event.MouseEvent
@@ -55,7 +54,7 @@ class LineMarker : LineMarkerProvider {
                     ShowUsagesAction(filter).startFindUsages(
                         callers.constructorReference,
                         RelativePoint(ev),
-                        PsiUtilBase.findEditor(callers.subscriberMethod),
+                        PsiEditorUtil.findEditor(callers.subscriberMethod),
                         Constants.MAX_USAGES
                     )
                 }
@@ -70,7 +69,7 @@ class LineMarker : LineMarkerProvider {
                     ShowUsagesAction(filter).startFindUsages(
                         constructor,
                         RelativePoint(ev),
-                        PsiUtilBase.findEditor(constructor),
+                        PsiEditorUtil.findEditor(constructor),
                         Constants.MAX_USAGES
                     )
                 }
@@ -84,7 +83,7 @@ class LineMarker : LineMarkerProvider {
         icon: Icon,
         tooltip: String,
         handler: (ev: MouseEvent, element: PsiElement) -> Unit
-    ) = LineMarkerInfo(psiElement, psiElement.textRange, icon, Pass.LINE_MARKERS, { tooltip }, handler, GutterIconRenderer.Alignment.CENTER)
+    ) = LineMarkerInfo(psiElement, psiElement.textRange, icon, { tooltip }, handler, GutterIconRenderer.Alignment.CENTER, { tooltip })
 
     private fun buildDependenciesGraph(subscriberMethod: PsiMethod): Callers? {
         val parameter = subscriberMethod.parameterList.parameters.first()
@@ -106,9 +105,9 @@ class LineMarker : LineMarkerProvider {
 
     companion object {
         @JvmField
-        val postersIcon = IconLoader.getIcon("/icons/posters.svg")
+        val postersIcon = IconLoader.getIcon("/icons/posters.svg", LineMarker::class.java)
         @JvmField
-        val subscribersIcon = IconLoader.getIcon("/icons/subscribers.svg")
+        val subscribersIcon = IconLoader.getIcon("/icons/subscribers.svg", LineMarker::class.java)
 
         private const val SUBSCRIBE_CLASS_NAME = "org.greenrobot.eventbus.Subscribe"
     }

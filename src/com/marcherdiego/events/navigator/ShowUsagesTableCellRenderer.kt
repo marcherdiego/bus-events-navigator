@@ -64,7 +64,7 @@ internal class ShowUsagesTableCellRenderer(private val myUsageView: UsageViewImp
         textChunks.ipad = Insets(0, 0, 0, 0)
         textChunks.border = null
         if (column == 0) {
-            val parent = usageNode.parent as GroupNode
+            val parent = usageNode.parent as? GroupNode
             appendGroupText(parent, panel, fileBgColor)
             if (usage === MORE_USAGES_SEPARATOR) {
                 textChunks.append("...<")

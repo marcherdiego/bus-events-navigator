@@ -83,6 +83,7 @@ import com.intellij.util.ui.AsyncProcessIcon
 import com.intellij.util.ui.ColumnInfo
 import com.intellij.util.ui.ListTableModel
 import org.jetbrains.annotations.NonNls
+import org.jetbrains.annotations.NotNull
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Rectangle
@@ -101,8 +102,8 @@ import kotlin.math.max
 import kotlin.math.min
 
 class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
-    private val myUsageViewSettings = UsageViewSettings().apply {
-        loadState(UsageViewSettings.instance)
+    private val myUsageViewSettings = UsageViewSettings.instance.apply {
+        loadState(this)
         isGroupByFileStructure = false
         isGroupByModule = false
         isGroupByPackage = false
@@ -393,7 +394,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         if (shortcut != null) {
             shortcutText = "(" + KeymapUtil.getShortcutText(shortcut) + ")"
         }
-        return InplaceButton("Settings...$shortcutText", General.Settings, ActionListener { e: ActionEvent? ->
+        return InplaceButton("Settings...$shortcutText", General.Settings, ActionListener { _: ActionEvent? ->
             SwingUtilities.invokeLater {
                 showDialogAndFindUsages(handler, popupPosition, editor, maxUsages)
             }
@@ -660,7 +661,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
 
         override fun convertIndexToModel(viewIndex: Int) = table.convertRowIndexToModel(viewIndex)
 
-        override fun getAllElements() = (table.model as MyModel).items.toTypedArray()
+        override fun getAllElements(): Array<out @NotNull Any> = arrayOf((table.model as MyModel).items)
 
         override fun getElementText(element: Any): String? {
             if (element !is UsageNode) {
@@ -734,8 +735,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
             } else {
                 val offset = editor.caretModel.offset
                 val chosen = GotoDeclarationAction.chooseAmbiguousTarget(
-                    editor, offset, processor,
-                    FindBundle.message("find.usages.ambiguous.title", "crap"), null
+                    project, editor, offset, processor, FindBundle.message("find.usages.ambiguous.title", "crap"), null
                 )
                 if (!chosen) {
                     ApplicationManager.getApplication().invokeLater(Runnable {
@@ -935,7 +935,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
 
         // returns new selection
         private fun updateModel(tableModel: MyModel, listOld: List<UsageNode?>, listNew: List<UsageNode>, oldSelection: Int): Int {
-            val cmds = ModelDiff.createDiffCmds(tableModel, listOld.toTypedArray(), listNew.toTypedArray())
+            val cmds = ModelDiff.createDiffCmds(tableModel, arrayOf(listOld), listNew.toTypedArray())
             var selection = oldSelection
             if (cmds != null) {
                 for (cmd in cmds) {
