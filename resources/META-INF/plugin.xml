@@ -5,12 +5,13 @@
   <vendor email="diego@marcher.com.uy" url="http://www.marcher.com.uy">Diego Marcher</vendor>
 
   <description><![CDATA[
-      Small plugin to keep track of event-posters for a given subscriber
+      Small plugin to keep track of event-posters for a given subscriber and the subscribers for a given event
     ]]></description>
 
   <change-notes><![CDATA[
       Initial release
       Basic wiring for @Subscribe-annotated methods, regardless the posting bus
+      Added subscriber-usages find to be able to navigate to the subscribers of a given event
     ]]>
   </change-notes>
 
@@ -18,6 +19,7 @@
   <depends>com.intellij.modules.platform</depends>
   <depends>com.intellij.modules.lang</depends>
   <depends>com.intellij.modules.java</depends>
+  <depends>com.intellij.modules.androidstudio</depends>
   <depends>org.jetbrains.kotlin</depends>
 
   <extensions defaultExtensionNs="com.intellij">
