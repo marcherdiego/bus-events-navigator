@@ -101,45 +101,48 @@ import kotlin.math.max
 import kotlin.math.min
 
 class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
-    private val myUsageViewSettings: UsageViewSettings
+    private val myUsageViewSettings = UsageViewSettings().apply {
+        loadState(UsageViewSettings.instance)
+        isGroupByFileStructure = false
+        isGroupByModule = false
+        isGroupByPackage = false
+        isGroupByUsageType = false
+        isGroupByScope = false
+    }
     private var mySearchEverywhereRunnable: Runnable? = null
     private var myWidth = 0
 
     init {
         setInjectedContext(true)
-        myUsageViewSettings = UsageViewSettings()
-        myUsageViewSettings.loadState(UsageViewSettings.instance)
-        myUsageViewSettings.isGroupByFileStructure = false
-        myUsageViewSettings.isGroupByModule = false
-        myUsageViewSettings.isGroupByPackage = false
-        myUsageViewSettings.isGroupByUsageType = false
-        myUsageViewSettings.isGroupByScope = false
     }
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.getData(PlatformDataKeys.PROJECT) ?: return
-        val searchEverywhere = mySearchEverywhereRunnable
-        mySearchEverywhereRunnable = null
-        hideHints()
-        if (searchEverywhere != null) {
-            searchEverywhere.run()
+        mySearchEverywhereRunnable?.let {
+            it.run()
+            mySearchEverywhereRunnable = null
             return
         }
+        hideHints()
         val popupPosition = JBPopupFactory.getInstance().guessBestPopupLocation(e.dataContext)
         PsiDocumentManager.getInstance(project).commitAllDocuments()
         FeatureUsageTracker.getInstance().triggerFeatureUsed("navigation.goto.usages")
         val usageTargets = e.getData(UsageView.USAGE_TARGETS_KEY)
         val editor = e.getData(PlatformDataKeys.EDITOR)
         if (usageTargets == null) {
-            chooseAmbiguousTargetAndPerform(project, editor,
-                                            PsiElementProcessor { element: PsiElement ->
-                                                startFindUsages(element, popupPosition, editor, USAGES_PAGE_SIZE)
-                                                false
-                                            }
+            chooseAmbiguousTargetAndPerform(
+                project,
+                editor,
+                PsiElementProcessor { element: PsiElement ->
+                    startFindUsages(element, popupPosition, editor, USAGES_PAGE_SIZE)
+                    false
+                }
             )
         } else {
             val element = (usageTargets[0] as PsiElementUsageTarget).element
-            element?.let { startFindUsages(it, popupPosition, editor, USAGES_PAGE_SIZE) }
+            element?.let {
+                startFindUsages(it, popupPosition, editor, USAGES_PAGE_SIZE)
+            }
         }
     }
 
@@ -193,10 +196,13 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         val alarm = Alarm(usageView)
         alarm.addRequest({ showPopupIfNeedTo(popup, popupPosition) }, 300)
         val pingEDT = PingEDT(
-            Condition<Any> { o: Any? -> popup.isDisposed }, 100,
+            Condition<Any> { popup.isDisposed },
+            100,
             Runnable {
-                if (popup.isDisposed) return@Runnable
-                val nodes: MutableList<UsageNode> = ArrayList()
+                if (popup.isDisposed) {
+                    return@Runnable
+                }
+                val nodes = ArrayList<UsageNode>()
                 var copy: List<Usage>
                 synchronized(usages) {
                     // open up popup as soon as several usages 've been found
@@ -211,7 +217,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         )
         val messageBusConnection = project.messageBus.connect(usageView)
         messageBusConnection.subscribe(UsageFilteringRuleProvider.RULES_CHANGED, Runnable { pingEDT.ping() })
-        val collect: Processor<Usage> = object : Processor<Usage> {
+        val collect = object : Processor<Usage> {
             private val myUsageTarget = arrayOf<UsageTarget>(PsiElement2UsageTargetAdapter(handler.psiElement))
 
             override fun process(usage: Usage): Boolean {
@@ -244,30 +250,30 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
             }
         }
         val indicator = FindUsagesManager.startProcessUsages(
-            handler, handler.primaryElements, handler.secondaryElements, collect, options, Runnable {
+            handler,
+            handler.primaryElements,
+            handler.secondaryElements,
+            collect,
+            options,
+            Runnable {
                 ApplicationManager.getApplication().invokeLater(
                     Runnable {
                         Disposer.dispose(processIcon)
                         val parent = processIcon.parent
                         parent.remove(processIcon)
                         parent.repaint()
-                        pingEDT.ping() // repaint title
+                        pingEDT.ping()
                         synchronized(usages) {
                             if (visibleNodes.isEmpty()) {
                                 if (usages.isEmpty()) {
                                     val text = UsageViewBundle.message("no.usages.found.in", searchScopePresentableName(options))
                                     showHint(text, editor, popupPosition, handler, maxUsages, options)
                                     popup.cancel()
-                                } else {
-                                    // all usages filtered out
                                 }
                             } else if (visibleNodes.size == 1) {
                                 if (usages.size == 1) {
-                                    //the only usage
                                     val usage = visibleNodes.iterator().next().usage
                                     usage.navigate(true)
-                                    //String message = UsageViewBundle.message("show.usages.only.usage", searchScopePresentableName(options, project));
-                                    //navigateAndHint(usage, message, handler, popupPosition, maxUsages, options);
                                     popup.cancel()
                                 } else {
                                     assert(usages.size > 1) { usages }
@@ -439,23 +445,21 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
             }
         }
         val popup = mutableListOf<JBPopup>()
-        var shortcut = UsageViewImpl.getShowUsagesWithSettingsShortcut()
-        if (shortcut != null) {
+        UsageViewImpl.getShowUsagesWithSettingsShortcut()?.let {
             object : DumbAwareAction() {
                 override fun actionPerformed(e: AnActionEvent) {
                     popup.firstOrNull()?.cancel()
                     showDialogAndFindUsages(handler, popupPosition, editor, maxUsages)
                 }
-            }.registerCustomShortcutSet(CustomShortcutSet(shortcut.firstKeyStroke), table)
+            }.registerCustomShortcutSet(CustomShortcutSet(it.firstKeyStroke), table)
         }
-        shortcut = showUsagesShortcut
-        if (shortcut != null) {
+        showUsagesShortcut?.let {
             object : DumbAwareAction() {
                 override fun actionPerformed(e: AnActionEvent) {
                     popup.firstOrNull()?.cancel()
                     searchEverywhere(options, handler, editor, popupPosition, maxUsages)
                 }
-            }.registerCustomShortcutSet(CustomShortcutSet(shortcut.firstKeyStroke), table)
+            }.registerCustomShortcutSet(CustomShortcutSet(it.firstKeyStroke), table)
         }
         val settingsButton = createSettingsButton(handler, popupPosition, editor, maxUsages, Runnable { popup.first().cancel() })
         val spinningProgress: ActiveComponent = object : ActiveComponent {

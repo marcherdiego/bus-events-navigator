@@ -21,8 +21,8 @@
   <depends>org.jetbrains.kotlin</depends>
 
   <extensions defaultExtensionNs="com.intellij">
-    <codeInsight.lineMarkerProvider language="kotlin" implementationClass="com.marcherdiego.events.navigator.SubscribersKotlinLineMarker"/>
-    <codeInsight.lineMarkerProvider language="JAVA" implementationClass="com.marcherdiego.events.navigator.SubscribersJavaLineMarker"/>
+    <codeInsight.lineMarkerProvider language="kotlin" implementationClass="com.marcherdiego.events.navigator.LineMarker"/>
+    <codeInsight.lineMarkerProvider language="JAVA" implementationClass="com.marcherdiego.events.navigator.LineMarker"/>
   </extensions>
 
 </idea-plugin>

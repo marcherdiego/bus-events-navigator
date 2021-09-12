@@ -25,8 +25,14 @@ import javax.swing.table.TableCellRenderer
 
 internal class ShowUsagesTableCellRenderer(private val myUsageView: UsageViewImpl) : TableCellRenderer {
 
-    override fun getTableCellRendererComponent(list: JTable, value: Any, isSelected: Boolean, hasFocus: Boolean, row: Int,
-                                               column: Int): Component {
+    override fun getTableCellRendererComponent(
+        list: JTable,
+        value: Any,
+        isSelected: Boolean,
+        hasFocus: Boolean,
+        row: Int,
+        column: Int
+    ): Component {
         val usageNode = if (value is UsageNode) {
             value
         } else {

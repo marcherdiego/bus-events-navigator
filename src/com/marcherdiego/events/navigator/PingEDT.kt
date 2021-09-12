@@ -30,13 +30,13 @@ class PingEDT(private val myShutUpCondition: Condition<*>, //-1 means indefinite
             val finish = System.currentTimeMillis()
             if (myMaxUnitOfWorkThresholdMs != -1 && finish - start > myMaxUnitOfWorkThresholdMs) break
         }
-        if (!isEmpty) {
+        if (isEmpty.not()) {
             scheduleUpdate()
         }
     }
 
     private val isEmpty: Boolean
-        get() = !pinged
+        get() = pinged.not()
 
     private fun processNext(): Boolean {
         pinged = false
@@ -52,7 +52,7 @@ class PingEDT(private val myShutUpCondition: Condition<*>, //-1 means indefinite
 
     // returns true if invokeLater was called
     private fun scheduleUpdate(): Boolean {
-        if (!stopped && invokeLaterScheduled.compareAndSet(false, true)) {
+        if (stopped.not() && invokeLaterScheduled.compareAndSet(false, true)) {
             SwingUtilities.invokeLater(myUpdateRunnable)
             return true
         }

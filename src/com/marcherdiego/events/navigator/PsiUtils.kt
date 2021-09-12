@@ -10,19 +10,21 @@ import com.intellij.psi.search.PsiShortNamesCache
 import kotlin.text.RegexOption.DOT_MATCHES_ALL
 
 object PsiUtils {
+    private var initDone = false
     private lateinit var psiShortNamesCache: PsiShortNamesCache
     private lateinit var allScope: GlobalSearchScope
 
     fun init(project: Project) {
-        psiShortNamesCache = PsiShortNamesCache.getInstance(project)
-        allScope = GlobalSearchScope.allScope(project)
+        if (initDone.not()) {
+            initDone = true
+
+            psiShortNamesCache = PsiShortNamesCache.getInstance(project)
+            allScope = GlobalSearchScope.allScope(project)
+        }
     }
 
     fun isSubscriptionMethod(psiElement: PsiElement): Boolean {
-        if (psiElement !is LeafPsiElement) {
-            return false
-        }
-        if (psiElement.text != "Subscribe") {
+        if (psiElement !is LeafPsiElement || psiElement.text != "Subscribe") {
             return false
         }
         return if (isKotlin(psiElement)) {
@@ -32,17 +34,23 @@ object PsiUtils {
         }
     }
 
+    fun getSubscribedEventName(psiElement: PsiElement): String {
+        return if (isKotlin(psiElement)) {
+            psiElement.text
+        } else {
+            psiElement.text
+        }
+    }
+
     fun isEventBusPost(psiElement: PsiElement): Boolean {
         if (isLeafIdentifier(psiElement).not()) {
             return false
         }
         val elementName = psiElement.text
-        val matchingRegex = if (isJava(psiElement)) {
-            getJavaPostingRegex(elementName)
-        } else if (isKotlin(psiElement) && psiElement.javaClass.toString().contains("com.intellij.psi")) {
-            geKotlinPostingRegex(elementName)
-        } else {
-            return false
+        val matchingRegex = when {
+            isJava(psiElement) -> getJavaPostingRegex(elementName)
+            isKotlin(psiElement) && psiElement.javaClass.toString().contains("com.intellij.psi") -> geKotlinPostingRegex(elementName)
+            else -> return false
         }
         if (anyParentMatches(psiElement, matchingRegex).not()) {
             return false
