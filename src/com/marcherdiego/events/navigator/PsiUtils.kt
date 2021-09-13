@@ -2,6 +2,8 @@ package com.marcherdiego.events.navigator
 
 import com.intellij.lang.Language
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.ProjectFileIndex
+import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.JavaPsiFacade
 import com.intellij.psi.PsiClass
@@ -12,6 +14,7 @@ import com.intellij.psi.impl.source.tree.LeafPsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.PsiShortNamesCache
 import com.intellij.psi.search.searches.AnnotatedElementsSearch
+import com.intellij.psi.search.searches.MethodReferencesSearch
 import kotlin.text.RegexOption.DOT_MATCHES_ALL
 
 object PsiUtils {
@@ -24,6 +27,7 @@ object PsiUtils {
     private lateinit var allScope: GlobalSearchScope
     private lateinit var javaPsiFacade: JavaPsiFacade
     private lateinit var subscribeAnnotationClass: PsiClass
+    private lateinit var fileIndex: ProjectFileIndex
 
     fun init(project: Project) {
         if (initDone.not()) {
@@ -33,6 +37,7 @@ object PsiUtils {
             allScope = GlobalSearchScope.allScope(project)
             javaPsiFacade = JavaPsiFacade.getInstance(project)
             subscribeAnnotationClass = javaPsiFacade.findClass(SUBSCRIBE_CLASS_NAME, allScope) ?: return
+            fileIndex = ProjectRootManager.getInstance(project).fileIndex
         }
     }
 
@@ -83,6 +88,38 @@ object PsiUtils {
 
     fun getClassByName(elementName: String): PsiClass? {
         return psiShortNamesCache.getClassesByName(elementName, allScope).firstOrNull()
+    }
+
+    fun findUsages(method: PsiMethod): Set<PsiElement> {
+        val usages = mutableSetOf<PsiElement>()
+        val parameter = method.parameterList.parameters.firstOrNull() ?: return usages
+        val parameterClass = javaPsiFacade.findClass(parameter.type.canonicalText, allScope) ?: return usages
+        parameterClass.constructors.forEach {
+            val parameterFile = it.containingFile.virtualFile
+            fileIndex.getModuleForFile(parameterFile) ?: return@forEach
+            MethodReferencesSearch.search(it, allScope, false).findAll().forEach { reference ->
+                val referencedElement = (reference.element.references.firstOrNull() ?: return@forEach).element
+                if (method.containingFile.name != referencedElement.containingFile.name) {
+                    usages.add(referencedElement)
+                }
+            }
+        }
+        return usages
+    }
+
+    fun findUsages(psiClass: PsiClass): Set<PsiElement> {
+        val usages = mutableSetOf<PsiElement>()
+        psiClass.constructors.forEach {
+            val parameterFile = it.containingFile.virtualFile
+            fileIndex.getModuleForFile(parameterFile) ?: return@forEach
+            MethodReferencesSearch.search(it, allScope, false).findAll().forEach { reference ->
+                val referencedElement = (reference.element.references.firstOrNull() ?: return@forEach).element
+                if (psiClass.containingFile.name != referencedElement.containingFile.name) {
+                    usages.add(referencedElement)
+                }
+            }
+        }
+        return usages
     }
 
     private fun anyParentMatches(psiElement: PsiElement, regex: Regex): Boolean {

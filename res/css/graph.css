@@ -1,11 +1,18 @@
-node {
-    shape: rounded-box;
-    padding: 5px, 4px;
-    fill-color: white;
-    stroke-mode: plain;
-    size-mode: fit;
+graph {
+    fill-color: #222222;
 }
+
 edge {
-    shape: freeplane;
     arrow-shape: arrow;
+}
+
+node {
+    text-alignment: under;
+    text-color: white;
+    text-style: bold;
+    text-background-mode: rounded-box;
+    text-background-color: #999999;
+    text-padding: 5px, 4px;
+    text-offset: 0px, 5px;
+    text-size: 30;
 }

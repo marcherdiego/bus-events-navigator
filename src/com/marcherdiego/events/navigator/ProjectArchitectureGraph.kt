@@ -7,8 +7,11 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiRecursiveElementWalkingVisitor
+import com.marcherdiego.events.navigator.extensions.addSingletonEdge
+import com.marcherdiego.events.navigator.extensions.addSingletonNode
 import com.marcherdiego.events.navigator.extensions.getResourceAsString
-import org.graphstream.graph.implementations.SingleGraph
+import com.marcherdiego.events.navigator.extensions.removeExtension
+import org.graphstream.graph.implementations.DefaultGraph
 import org.graphstream.ui.view.Viewer
 
 object ProjectArchitectureGraph {
@@ -17,18 +20,37 @@ object ProjectArchitectureGraph {
     fun show(project: Project) {
         System.setProperty("org.graphstream.ui", "swing")
 
-        val graph = SingleGraph("Tutorial 1")
+        val graph = DefaultGraph("App Architecture")
         graph.setAttribute("ui.quality")
         graph.setAttribute("ui.antialias")
         graph.setAttribute("stylesheet", getResourceAsString("/css/graph.css"))
 
         PsiUtils.init(project)
+
         ModuleManager.getInstance(project).modules.forEach { module ->
             module.rootManager.contentRoots.forEach { root ->
                 getAllSourceFiles(root).forEach { file ->
                     PsiManager.getInstance(project).findFile(file)?.accept(object : PsiRecursiveElementWalkingVisitor() {
                         override fun visitElement(element: PsiElement) {
-                            findMvpComponents(element)
+                            findMvpComponents(element)?.let { mvpComponents ->
+                                val fileName = element.containingFile.name.removeExtension()
+                                graph.addSingletonNode(fileName)
+
+                                val components = mvpComponents.first
+                                val shouldRevert = mvpComponents.second
+                                components.forEach { reference ->
+                                    val referenceName = reference.containingFile.name.removeExtension()
+                                    graph.addSingletonNode(referenceName)
+
+                                    val (from, to) = if (shouldRevert) {
+                                        Pair(fileName, referenceName)
+                                    } else {
+                                        Pair(referenceName, fileName)
+                                    }
+                                    val edgeName = "$from$to"
+                                    graph.addSingletonEdge(edgeName, from, to, true)
+                                }
+                            }
                             super.visitElement(element)
                         }
                     })
@@ -36,30 +58,31 @@ object ProjectArchitectureGraph {
             }
         }
 
-        val a = graph.addNode("A")
-        val b = graph.addNode("B")
-        val c = graph.addNode("C")
-        graph.addEdge("AB", "A", "B", true)
-        graph.addEdge("BC", "B", "C", true)
-        graph.addEdge("CA", "C", "A", true)
-
-        a.setAttribute("ui.label", "Node A")
-        b.setAttribute("ui.label", "Node B")
-        c.setAttribute("ui.label", "Node C")
-
         val viewer = graph.display()
         viewer.closeFramePolicy = Viewer.CloseFramePolicy.HIDE_ONLY
     }
 
-    private fun findMvpComponents(psiElement: PsiElement) {
-        when {
+    private fun findMvpComponents(psiElement: PsiElement): Pair<Set<PsiElement>, Boolean>? {
+        return when {
             PsiUtils.isSubscriptionMethod(psiElement) -> {
-                System.err.println("Subscription found: ${psiElement.text} in ${psiElement.containingFile.name}")
-                val subscriberMethod = PsiUtils.findAnnotatedMethod(psiElement) ?: return
+                val subscriberMethod = PsiUtils.findAnnotatedMethod(psiElement) ?: return null
+                val usages = PsiUtils.findUsages(subscriberMethod)
+                if (usages.isEmpty()) {
+                    null
+                } else {
+                    Pair(usages, false)
+                }
             }
             PsiUtils.isEventBusPost(psiElement) -> {
-                System.err.println("Post found: ${psiElement.text} in ${psiElement.containingFile.name}")
+                val constructor = PsiUtils.getClassByName(psiElement.text) ?: return null
+                val usages = PsiUtils.findUsages(constructor)
+                if (usages.isEmpty()) {
+                    null
+                } else {
+                    Pair(usages, true)
+                }
             }
+            else -> null
         }
     }
 
