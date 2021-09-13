@@ -29,6 +29,7 @@ class LineMarker : LineMarkerProvider {
 
     private fun init(psiElement: PsiElement) {
         if (initDone.not()) {
+            System.setProperty("org.graphstream.ui", "swing")
             initDone = true
 
             val project = psiElement.project
@@ -57,6 +58,8 @@ class LineMarker : LineMarkerProvider {
                         PsiEditorUtil.findEditor(callers.subscriberMethod),
                         Constants.MAX_USAGES
                     )
+
+                    ProjectArchitectureGraph.show(psiElement.project)
                 }
             }
             PsiUtils.isEventBusPost(psiElement) -> {
