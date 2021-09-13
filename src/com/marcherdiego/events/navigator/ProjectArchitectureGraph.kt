@@ -13,7 +13,10 @@ import org.graphstream.ui.view.Viewer
 
 object ProjectArchitectureGraph {
     private val validSourceExtensions = listOf("kt", "java")
+
     fun show(project: Project) {
+        System.setProperty("org.graphstream.ui", "swing")
+
         val graph = SingleGraph("Tutorial 1")
         graph.setAttribute("ui.quality")
         graph.setAttribute("ui.antialias")
@@ -52,6 +55,7 @@ object ProjectArchitectureGraph {
         when {
             PsiUtils.isSubscriptionMethod(psiElement) -> {
                 System.err.println("Subscription found: ${psiElement.text} in ${psiElement.containingFile.name}")
+                val subscriberMethod = PsiUtils.findAnnotatedMethod(psiElement) ?: return
             }
             PsiUtils.isEventBusPost(psiElement) -> {
                 System.err.println("Post found: ${psiElement.text} in ${psiElement.containingFile.name}")

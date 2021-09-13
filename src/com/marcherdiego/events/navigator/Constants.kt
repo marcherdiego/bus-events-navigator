@@ -7,4 +7,5 @@ object Constants {
     const val PSI_PACKAGE = "com.intellij.psi"
     const val OPEN_BRACKET = "{"
     const val IMPORT = "import"
+    const val FUN = "fun"
 }
