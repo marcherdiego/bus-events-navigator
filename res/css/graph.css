@@ -13,6 +13,6 @@ node {
     text-background-mode: rounded-box;
     text-background-color: #999999;
     text-padding: 5px, 4px;
-    text-offset: 0px, 5px;
+    text-offset: 5px, 5px;
     text-size: 30;
 }

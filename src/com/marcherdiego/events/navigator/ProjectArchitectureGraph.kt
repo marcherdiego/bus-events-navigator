@@ -8,25 +8,38 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiRecursiveElementWalkingVisitor
 import com.marcherdiego.events.navigator.extensions.addSingletonEdge
-import com.marcherdiego.events.navigator.extensions.addSingletonNode
-import com.marcherdiego.events.navigator.extensions.getResourceAsString
+import com.marcherdiego.events.navigator.extensions.addSingletonVertex
 import com.marcherdiego.events.navigator.extensions.removeExtension
-import org.graphstream.graph.implementations.DefaultGraph
-import org.graphstream.ui.view.Viewer
+import com.mxgraph.layout.hierarchical.mxHierarchicalLayout
+import com.mxgraph.swing.mxGraphComponent
+import com.mxgraph.view.mxGraph
+import javax.swing.JFrame
 
 object ProjectArchitectureGraph {
     private val validSourceExtensions = listOf("kt", "java")
 
     fun show(project: Project) {
-        System.setProperty("org.graphstream.ui", "swing")
+        val graph = mxGraph()
+        graph.model.beginUpdate()
+        val graphComponent = mxGraphComponent(graph)
+        graphComponent.isConnectable = false
+        graphComponent.isDragEnabled = false
+        try {
+            val parent = graph.defaultParent
+            populateGraph(project, parent, graph)
+            mxHierarchicalLayout(graph).execute(parent)
+        } finally {
+            // Updates the display
+            graph.model.endUpdate()
+        }
+        val frame = JFrame()
+        frame.setSize(1000, 800)
+        frame.contentPane.add(graphComponent)
+        frame.setLocationRelativeTo(null)
+        frame.isVisible = true
+    }
 
-        val graph = DefaultGraph("App Architecture")
-        graph.setAttribute("ui.quality")
-        graph.setAttribute("ui.antialias")
-        graph.setAttribute("stylesheet", getResourceAsString("/css/graph.css"))
-
-        PsiUtils.init(project)
-
+    private fun populateGraph(project: Project, parent: Any, graph: mxGraph) {
         ModuleManager.getInstance(project).modules.forEach { module ->
             module.rootManager.contentRoots.forEach { root ->
                 getAllSourceFiles(root).forEach { file ->
@@ -34,21 +47,20 @@ object ProjectArchitectureGraph {
                         override fun visitElement(element: PsiElement) {
                             findMvpComponents(element)?.let { mvpComponents ->
                                 val fileName = element.containingFile.name.removeExtension()
-                                graph.addSingletonNode(fileName)
-
+                                val fileVertex = graph.addSingletonVertex(parent, fileName)
                                 val components = mvpComponents.first
                                 val shouldRevert = mvpComponents.second
+
                                 components.forEach { reference ->
                                     val referenceName = reference.containingFile.name.removeExtension()
-                                    graph.addSingletonNode(referenceName)
-
+                                    val referenceVertex = graph.addSingletonVertex(parent, referenceName)
                                     val (from, to) = if (shouldRevert) {
-                                        Pair(fileName, referenceName)
+                                        Pair(fileVertex, referenceVertex)
                                     } else {
-                                        Pair(referenceName, fileName)
+                                        Pair(referenceVertex, fileVertex)
                                     }
                                     val edgeName = "$from$to"
-                                    graph.addSingletonEdge(edgeName, from, to, true)
+                                    graph.addSingletonEdge(parent, edgeName, from, to)
                                 }
                             }
                             super.visitElement(element)
@@ -57,9 +69,6 @@ object ProjectArchitectureGraph {
                 }
             }
         }
-
-        val viewer = graph.display()
-        viewer.closeFramePolicy = Viewer.CloseFramePolicy.HIDE_ONLY
     }
 
     private fun findMvpComponents(psiElement: PsiElement): Pair<Set<PsiElement>, Boolean>? {
