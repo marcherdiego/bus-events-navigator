@@ -11,9 +11,14 @@ import com.marcherdiego.events.navigator.extensions.addSingletonEdge
 import com.marcherdiego.events.navigator.extensions.addSingletonVertex
 import com.marcherdiego.events.navigator.extensions.removeExtension
 import com.mxgraph.layout.hierarchical.mxHierarchicalLayout
+import com.mxgraph.model.mxCell
 import com.mxgraph.swing.mxGraphComponent
+import com.mxgraph.swing.view.mxICellEditor
 import com.mxgraph.view.mxGraph
+import java.util.EventObject
 import javax.swing.JFrame
+import javax.swing.SwingConstants
+import kotlin.math.abs
 
 object ProjectArchitectureGraph {
     private val validSourceExtensions = listOf("kt", "java")
@@ -24,10 +29,23 @@ object ProjectArchitectureGraph {
         val graphComponent = mxGraphComponent(graph)
         graphComponent.isConnectable = false
         graphComponent.isDragEnabled = false
+        graphComponent.cellEditor = object : mxICellEditor {
+            override fun getEditingCell() = null
+
+            override fun startEditing(cell: Any?, trigger: EventObject?) {
+            }
+
+            override fun stopEditing(cancel: Boolean) {
+            }
+        }
         try {
             val parent = graph.defaultParent
             populateGraph(project, parent, graph)
-            mxHierarchicalLayout(graph).execute(parent)
+            mxHierarchicalLayout(graph, SwingConstants.SOUTH).execute(parent)
+
+            val mostNegativeY = getMostNegativeCoordinateY(parent, graph)
+            val children = graph.getChildCells(parent)
+            graph.moveCells(children, 0.0, abs(mostNegativeY))
         } finally {
             // Updates the display
             graph.model.endUpdate()
@@ -37,6 +55,20 @@ object ProjectArchitectureGraph {
         frame.contentPane.add(graphComponent)
         frame.setLocationRelativeTo(null)
         frame.isVisible = true
+    }
+
+    private fun getMostNegativeCoordinateY(parent: Any, graph: mxGraph): Double {
+        val children = graph.getChildCells(parent)
+        var mostNegative = 10000.0
+        children.forEach {
+            val child = it as mxCell
+            if (child.geometry != null) {
+                if (child.geometry.y < mostNegative) {
+                    mostNegative = child.geometry.y
+                }
+            }
+        }
+        return mostNegative
     }
 
     private fun populateGraph(project: Project, parent: Any, graph: mxGraph) {
