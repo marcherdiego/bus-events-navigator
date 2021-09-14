@@ -16,6 +16,7 @@ import com.mxgraph.swing.mxGraphComponent
 import com.mxgraph.swing.view.mxICellEditor
 import com.mxgraph.view.mxGraph
 import java.util.EventObject
+import javax.swing.BorderFactory
 import javax.swing.JFrame
 import javax.swing.SwingConstants
 import kotlin.math.abs
@@ -38,6 +39,8 @@ object ProjectArchitectureGraph {
             override fun stopEditing(cancel: Boolean) {
             }
         }
+        graphComponent.border = BorderFactory.createEmptyBorder(30, 30, 30, 30)
+
         try {
             val parent = graph.defaultParent
             populateGraph(project, parent, graph)
@@ -51,7 +54,7 @@ object ProjectArchitectureGraph {
             graph.model.endUpdate()
         }
         val frame = JFrame()
-        frame.setSize(1000, 800)
+        frame.setSize(1200, 800)
         frame.contentPane.add(graphComponent)
         frame.setLocationRelativeTo(null)
         frame.isVisible = true
