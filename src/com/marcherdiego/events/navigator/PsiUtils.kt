@@ -90,7 +90,7 @@ object PsiUtils {
         return psiShortNamesCache.getClassesByName(elementName, allScope).firstOrNull()
     }
 
-    fun findUsages(method: PsiMethod): Set<PsiElement> {
+    fun findMethodParameterUsages(method: PsiMethod): Set<PsiElement> {
         val usages = mutableSetOf<PsiElement>()
         val parameter = method.parameterList.parameters.firstOrNull() ?: return usages
         val parameterClass = javaPsiFacade.findClass(parameter.type.canonicalText, allScope) ?: return usages

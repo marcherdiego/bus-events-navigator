@@ -10,6 +10,7 @@ import com.intellij.psi.PsiRecursiveElementWalkingVisitor
 import com.marcherdiego.events.navigator.extensions.addSingletonEdge
 import com.marcherdiego.events.navigator.extensions.addSingletonVertex
 import com.marcherdiego.events.navigator.extensions.removeExtension
+import com.marcherdiego.events.navigator.styles.GraphStyles
 import com.mxgraph.layout.hierarchical.mxHierarchicalLayout
 import com.mxgraph.model.mxCell
 import com.mxgraph.swing.mxGraphComponent
@@ -27,6 +28,12 @@ object ProjectArchitectureGraph {
     fun show(project: Project) {
         val graph = mxGraph()
         graph.model.beginUpdate()
+        graph.isAutoSizeCells = true
+        graph.stylesheet.putCellStyle(GraphStyles.NODE, GraphStyles.getNodeStyles())
+        graph.stylesheet.putCellStyle(GraphStyles.MODEL, GraphStyles.getModelNodeStyles())
+        graph.stylesheet.putCellStyle(GraphStyles.VIEW, GraphStyles.getViewNodeStyles())
+        graph.stylesheet.putCellStyle(GraphStyles.PRESENTER, GraphStyles.getPresenterNodeStyles())
+
         val graphComponent = mxGraphComponent(graph)
         graphComponent.isConnectable = false
         graphComponent.isDragEnabled = false
@@ -54,27 +61,20 @@ object ProjectArchitectureGraph {
             graph.model.endUpdate()
         }
         val frame = JFrame()
-        frame.setSize(1200, 800)
+        frame.setSize(1500, 1200)
         frame.contentPane.add(graphComponent)
         frame.setLocationRelativeTo(null)
         frame.isVisible = true
     }
 
     private fun getMostNegativeCoordinateY(parent: Any, graph: mxGraph): Double {
-        val children = graph.getChildCells(parent)
-        var mostNegative = 10000.0
-        children.forEach {
-            val child = it as mxCell
-            if (child.geometry != null) {
-                if (child.geometry.y < mostNegative) {
-                    mostNegative = child.geometry.y
-                }
-            }
+        return graph.getChildCells(parent).minOf {
+            (it as mxCell).geometry?.y ?: 10000.0
         }
-        return mostNegative
     }
 
     private fun populateGraph(project: Project, parent: Any, graph: mxGraph) {
+        val activities = mutableSetOf<mxCell>()
         ModuleManager.getInstance(project).modules.forEach { module ->
             module.rootManager.contentRoots.forEach { root ->
                 getAllSourceFiles(root).forEach { file ->
@@ -86,6 +86,7 @@ object ProjectArchitectureGraph {
                                 val components = mvpComponents.first
                                 val shouldRevert = mvpComponents.second
 
+                                activities.addAll(findActivityReferences(graph, parent, element))
                                 components.forEach { reference ->
                                     val referenceName = reference.containingFile.name.removeExtension()
                                     val referenceVertex = graph.addSingletonVertex(parent, referenceName)
@@ -96,6 +97,8 @@ object ProjectArchitectureGraph {
                                     }
                                     val edgeName = "$from$to"
                                     graph.addSingletonEdge(parent, edgeName, from, to)
+
+                                    activities.addAll(findActivityReferences(graph, parent, reference))
                                 }
                             }
                             super.visitElement(element)
@@ -104,13 +107,58 @@ object ProjectArchitectureGraph {
                 }
             }
         }
+
+        resolveActivitiesInteractions(graph, parent, activities)
+    }
+
+    private fun findActivityReferences(graph: mxGraph, parent: Any, psiElement: PsiElement): Set<mxCell> {
+        val fileName = psiElement.containingFile.name.removeExtension()
+        if (fileName.contains("Presenter").not()) {
+            return setOf()
+        }
+        val constructor = PsiUtils.getClassByName(fileName) ?: return setOf()
+        val activityElements = PsiUtils.findUsages(constructor)
+        val activities = mutableSetOf<mxCell>()
+        if (activityElements.isNotEmpty()) {
+            val fileVertex = graph.addSingletonVertex(parent, fileName)
+            activityElements.forEach { activityElement ->
+                val referenceName = activityElement.containingFile.name.removeExtension()
+                val referenceVertex = graph.addSingletonVertex(parent, referenceName)
+                activities.add(referenceVertex)
+                val edgeName = "$fileVertex$referenceVertex"
+                graph.addSingletonEdge(parent, edgeName, fileVertex, referenceVertex)
+            }
+        }
+        return activities
+    }
+
+    private fun resolveActivitiesInteractions(graph: mxGraph, parent: Any, activities: Set<mxCell>) {
+        val v1 = activities.toList()[1]
+        val v2 = activities.toList()[2]
+        val edgeName1 = "$v1$v2"
+        graph.addSingletonEdge(parent, edgeName1, v1, v2)
+
+        val v3 = activities.toList()[1]
+        val v4 = activities.toList()[3]
+        val edgeName2 = "$v3$v4"
+        graph.addSingletonEdge(parent, edgeName2, v3, v4)
+
+        val v5 = activities.toList()[2]
+        val v6 = activities.toList()[3]
+        val edgeName3 = "$v5$v6"
+        graph.addSingletonEdge(parent, edgeName3, v5, v6)
+
+        val v7 = activities.toList()[3]
+        val v8 = activities.toList()[4]
+        val edgeName4 = "$v7$v8"
+        graph.addSingletonEdge(parent, edgeName4, v7, v8)
     }
 
     private fun findMvpComponents(psiElement: PsiElement): Pair<Set<PsiElement>, Boolean>? {
         return when {
             PsiUtils.isSubscriptionMethod(psiElement) -> {
                 val subscriberMethod = PsiUtils.findAnnotatedMethod(psiElement) ?: return null
-                val usages = PsiUtils.findUsages(subscriberMethod)
+                val usages = PsiUtils.findMethodParameterUsages(subscriberMethod)
                 if (usages.isEmpty()) {
                     null
                 } else {
