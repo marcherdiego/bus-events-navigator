@@ -1,15 +1,9 @@
-package com.marcherdiego.events.navigator.styles
+package com.marcherdiego.events.navigator.graph.styles
 
 import com.mxgraph.util.mxConstants
 import com.mxgraph.view.mxPerimeter
 
 object GraphStyles {
-    const val NODE = "node"
-    const val ACTIVITY = "activity"
-    const val MODEL = "model"
-    const val VIEW = "view"
-    const val PRESENTER = "presenter"
-
     fun getNodeStyles(): Map<String, Any> {
         return mutableMapOf<String, Any>().apply {
             put(mxConstants.STYLE_FILLCOLOR, "#222222")

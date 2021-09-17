@@ -10,11 +10,10 @@ import com.intellij.psi.PsiRecursiveElementWalkingVisitor
 import com.marcherdiego.events.navigator.extensions.addSingletonEdge
 import com.marcherdiego.events.navigator.extensions.addSingletonVertex
 import com.marcherdiego.events.navigator.extensions.removeExtension
-import com.marcherdiego.events.navigator.styles.GraphStyles
+import com.marcherdiego.events.navigator.graph.layout.ExtendedCompactTreeLayout
+import com.marcherdiego.events.navigator.graph.styles.GraphStyles
 import com.mxgraph.layout.hierarchical.mxHierarchicalLayout
-import com.mxgraph.layout.mxCompactTreeLayout
 import com.mxgraph.model.mxCell
-import com.mxgraph.model.mxICell
 import com.mxgraph.swing.mxGraphComponent
 import com.mxgraph.swing.view.mxICellEditor
 import com.mxgraph.view.mxGraph
@@ -24,7 +23,6 @@ import javax.swing.JFrame
 import javax.swing.SwingConstants
 import kotlin.math.abs
 
-
 object ProjectArchitectureGraph {
     private val validSourceExtensions = listOf("kt", "java")
 
@@ -32,10 +30,10 @@ object ProjectArchitectureGraph {
         val graph = mxGraph()
         graph.model.beginUpdate()
         graph.isAutoSizeCells = true
-        graph.stylesheet.putCellStyle(GraphStyles.NODE, GraphStyles.getNodeStyles())
-        graph.stylesheet.putCellStyle(GraphStyles.MODEL, GraphStyles.getModelNodeStyles())
-        graph.stylesheet.putCellStyle(GraphStyles.VIEW, GraphStyles.getViewNodeStyles())
-        graph.stylesheet.putCellStyle(GraphStyles.PRESENTER, GraphStyles.getPresenterNodeStyles())
+        graph.stylesheet.putCellStyle(Constants.NODE, GraphStyles.getNodeStyles())
+        graph.stylesheet.putCellStyle(Constants.MODEL, GraphStyles.getModelNodeStyles())
+        graph.stylesheet.putCellStyle(Constants.VIEW, GraphStyles.getViewNodeStyles())
+        graph.stylesheet.putCellStyle(Constants.PRESENTER, GraphStyles.getPresenterNodeStyles())
 
         val graphComponent = mxGraphComponent(graph)
         graphComponent.isConnectable = false
@@ -53,13 +51,16 @@ object ProjectArchitectureGraph {
 
         try {
             val parent = graph.defaultParent
-            populateGraph(project, parent, graph)
-            ExtendedCompactTreeLayout(graph).execute(parent)
-            mxHierarchicalLayout(graph, SwingConstants.SOUTH).execute(parent)
 
-            val mostNegativeY = getMostNegativeCoordinateY(parent, graph)
-            val children = graph.getChildCells(parent)
-            graph.moveCells(children, 0.0, abs(mostNegativeY))
+            val appVertex = graph.addSingletonVertex(parent, "Application")
+
+            populateGraph(project, parent, appVertex, graph)
+            ExtendedCompactTreeLayout(graph).execute(parent)
+            //mxHierarchicalLayout(graph).execute(parent)
+
+            //val mostNegativeY = getMostNegativeCoordinateY(parent, graph)
+            //val children = graph.getChildCells(parent)
+            //graph.moveCells(children, 0.0, abs(mostNegativeY))
         } finally {
             // Updates the display
             graph.model.endUpdate()
@@ -77,8 +78,8 @@ object ProjectArchitectureGraph {
         }
     }
 
-    private fun populateGraph(project: Project, parent: Any, graph: mxGraph) {
-        val activities = mutableSetOf<Pair<mxCell, String>>()
+    private fun populateGraph(project: Project, parent: Any, rootVertex: mxCell, graph: mxGraph) {
+        val vertices = mutableSetOf<Pair<mxCell, String>>()
         ModuleManager.getInstance(project).modules.forEach { module ->
             module.rootManager.contentRoots.forEach { root ->
                 getAllSourceFiles(root).forEach { file ->
@@ -88,24 +89,27 @@ object ProjectArchitectureGraph {
                         ?.accept(object : PsiRecursiveElementWalkingVisitor() {
                             override fun visitElement(element: PsiElement) {
                                 findMvpComponents(element)?.let { mvpComponents ->
-                                    val fileName = element.containingFile.name.removeExtension()
+                                    val file = element.containingFile
+                                    val fileName = file.name.removeExtension()
                                     val fileVertex = graph.addSingletonVertex(parent, fileName)
                                     val components = mvpComponents.first
                                     val shouldRevert = mvpComponents.second
 
-                                    activities.addAll(findActivityReferences(graph, parent, element))
+                                    vertices.addAll(findActivityReferences(graph, parent, rootVertex, element))
+                                    vertices.add(Pair(fileVertex, file.text))
                                     components.forEach { reference ->
-                                        val referenceName = reference.containingFile.name.removeExtension()
+                                        val referenceFile = reference.containingFile
+                                        val referenceName = referenceFile.name.removeExtension()
                                         val referenceVertex = graph.addSingletonVertex(parent, referenceName)
-                                        val (from, to) = if (shouldRevert) {
-                                            Pair(fileVertex, referenceVertex)
+                                        val (edgeName, from, to) = if (shouldRevert) {
+                                            Triple("$fileName$referenceName", fileVertex, referenceVertex)
                                         } else {
-                                            Pair(referenceVertex, fileVertex)
+                                            Triple("$referenceName$fileName", referenceVertex, fileVertex)
                                         }
-                                        val edgeName = "$from$to"
-                                        graph.addSingletonEdge(parent, edgeName, from, to)
+                                        //graph.addSingletonEdge(parent, edgeName, from, to)
 
-                                        activities.addAll(findActivityReferences(graph, parent, reference))
+                                        vertices.addAll(findActivityReferences(graph, parent, rootVertex, reference))
+                                        vertices.add(Pair(referenceVertex, referenceFile.text))
                                     }
                                 }
                                 super.visitElement(element)
@@ -115,50 +119,78 @@ object ProjectArchitectureGraph {
             }
         }
 
-        resolveActivitiesInteractions(graph, parent, activities)
+        resolveInteractions(graph, parent, vertices)
     }
 
-    private fun findActivityReferences(graph: mxGraph, parent: Any, psiElement: PsiElement): Set<Pair<mxCell, String>> {
+    private fun findActivityReferences(graph: mxGraph, parent: Any, root: mxCell, psiElement: PsiElement): Set<Pair<mxCell, String>> {
+        val result = mutableSetOf<Pair<mxCell, String>>()
         val fileName = psiElement.containingFile.name.removeExtension()
         if (fileName.contains("Presenter").not()) {
-            return setOf()
+            return result
         }
-        val constructor = PsiUtils.getClassByName(fileName) ?: return setOf()
+        val constructor = PsiUtils.getClassByName(fileName) ?: return result
         val activityElements = PsiUtils.findUsages(constructor)
-        val activities = mutableSetOf<Pair<mxCell, String>>()
         if (activityElements.isNotEmpty()) {
             val fileVertex = graph.addSingletonVertex(parent, fileName)
             activityElements.forEach { activityElement ->
-                val referenceFile = activityElement.containingFile
-                val referenceName = referenceFile.name.removeExtension()
-                val referenceVertex = graph.addSingletonVertex(parent, referenceName)
-                activities.add(Pair(referenceVertex, referenceFile.text))
-                val edgeName = "$fileVertex$referenceVertex"
-                graph.addSingletonEdge(parent, edgeName, fileVertex, referenceVertex)
+                val activityFile = activityElement.containingFile
+                val activityName = activityFile.name.removeExtension()
+                val activityVertex = graph.addSingletonVertex(parent, activityName)
+                val edgeName = "$fileName$activityName"
+                graph.addSingletonEdge(parent, edgeName, activityVertex, fileVertex)
+                result.add(Pair(activityVertex, activityFile.text))
+
+                graph.addSingletonEdge(parent, "root-$activityName", root, activityVertex)
             }
         }
-        return activities
+        return result
     }
 
-    private fun resolveActivitiesInteractions(graph: mxGraph, parent: Any, activities: Set<Pair<mxCell, String>>) {
-        activities.forEach { outer ->
-            activities
-                .filter {
-                    it != outer
-                }
+    private fun resolveInteractions(graph: mxGraph, parent: Any, vertices: Set<Pair<mxCell, String>>) {
+        vertices.forEach { outer ->
+            getInteractionCandidates(outer, vertices)
                 .forEach { inner ->
-                    val outerActivityVertex = outer.first
-                    val outerActivityName = (outerActivityVertex.value as String).trim()
-                    val outerActivityContent = outer.second
+                    val outerVertex = outer.first
+                    val outerName = outerVertex.value as String
+                    val outerContent = outer.second
 
-                    val innerActivityVertex = inner.first
-                    val innerActivityName = (innerActivityVertex.value as String).trim()
-                    if (outerActivityContent.contains(innerActivityName)) {
-                        val edgeName1 = "$outerActivityName$innerActivityName"
-                        graph.addSingletonEdge(parent, edgeName1, outerActivityVertex, innerActivityVertex)
+                    val innerVertex = inner.first
+                    val innerName = innerVertex.value as String
+                    if (outerContent.contains(innerName)) {
+                        val edgeName = "$innerName$outerName"
+                        graph.addSingletonEdge(parent, edgeName, outerVertex, innerVertex)
                     }
                 }
         }
+    }
+
+    private fun getInteractionCandidates(element: Pair<mxCell, String>, vertices: Set<Pair<mxCell, String>>): List<Pair<mxCell, String>> {
+        var result = vertices.filter {
+            it != element
+        }
+        val elementName = (element.first.value as String)
+        result = when {
+            elementName.contains(Constants.MODEL, true) -> {
+                result.filter {
+                    (it.first.value as String).contains(Constants.PRESENTER, true)
+                }
+            }
+            elementName.contains(Constants.VIEW, true) -> {
+                result.filter {
+                    (it.first.value as String).contains(Constants.PRESENTER, true)
+                }
+            }
+            elementName.contains(Constants.PRESENTER, true) -> result
+            elementName.contains(Constants.MODEL, true) -> listOf()
+            else -> {
+                result.filter {
+                    (it.first.value as String).contains(Constants.MODEL, true).not() &&
+                            (it.first.value as String).contains(Constants.VIEW, true).not() &&
+                            (it.first.value as String).contains(Constants.PRESENTER, true).not()
+                }
+            }
+        }
+        return result
     }
 
     private fun findMvpComponents(psiElement: PsiElement): Pair<Set<PsiElement>, Boolean>? {
@@ -169,7 +201,7 @@ object ProjectArchitectureGraph {
                 if (usages.isEmpty()) {
                     null
                 } else {
-                    Pair(usages, false)
+                    Pair(usages, true)
                 }
             }
             PsiUtils.isEventBusPost(psiElement) -> {
@@ -178,7 +210,7 @@ object ProjectArchitectureGraph {
                 if (usages.isEmpty()) {
                     null
                 } else {
-                    Pair(usages, true)
+                    Pair(usages, false)
                 }
             }
             else -> null
@@ -194,36 +226,5 @@ object ProjectArchitectureGraph {
             children.addAll(getAllSourceFiles(child))
         }
         return children
-    }
-
-    class ExtendedCompactTreeLayout(graph: mxGraph?) : mxCompactTreeLayout(graph) {
-        override fun execute(parent: Any?) {
-            super.execute(parent)
-            if (!horizontal) {
-                // get all the vertexes
-                val vertexes = graph.getChildVertices(graph.defaultParent)
-                for (i in vertexes.indices) {
-                    val parentCell = vertexes[i] as mxICell
-                    // For each edge of the vertex
-                    for (j in 0 until parentCell.edgeCount) {
-                        val edge = parentCell.getEdgeAt(j)
-                        // Only consider edges that are from the cell
-                        if (edge.getTerminal(true) !== parentCell) {
-                            continue
-                        }
-                        val parentBounds = getVertexBounds(parentCell)
-                        val edgePoints = edge.geometry.points
-
-                        // Need to check that there is always 3 points to an edge, but this will get you started
-                        val outPort = edgePoints[0]
-                        val elbowPoint = edgePoints[1]
-                        if (outPort.x != parentBounds.centerX) {
-                            outPort.x = parentBounds.centerX
-                            elbowPoint.x = parentBounds.centerX
-                        }
-                    }
-                }
-            }
-        }
     }
 }
