@@ -9,10 +9,10 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiRecursiveElementWalkingVisitor
 import com.marcherdiego.events.navigator.extensions.addSingletonEdge
 import com.marcherdiego.events.navigator.extensions.addSingletonVertex
+import com.marcherdiego.events.navigator.extensions.hasEdge
 import com.marcherdiego.events.navigator.extensions.removeExtension
 import com.marcherdiego.events.navigator.graph.layout.ExtendedCompactTreeLayout
 import com.marcherdiego.events.navigator.graph.styles.GraphStyles
-import com.mxgraph.layout.hierarchical.mxHierarchicalLayout
 import com.mxgraph.model.mxCell
 import com.mxgraph.swing.mxGraphComponent
 import com.mxgraph.swing.view.mxICellEditor
@@ -20,8 +20,6 @@ import com.mxgraph.view.mxGraph
 import java.util.EventObject
 import javax.swing.BorderFactory
 import javax.swing.JFrame
-import javax.swing.SwingConstants
-import kotlin.math.abs
 
 object ProjectArchitectureGraph {
     private val validSourceExtensions = listOf("kt", "java")
@@ -56,11 +54,6 @@ object ProjectArchitectureGraph {
 
             populateGraph(project, parent, appVertex, graph)
             ExtendedCompactTreeLayout(graph).execute(parent)
-            //mxHierarchicalLayout(graph).execute(parent)
-
-            //val mostNegativeY = getMostNegativeCoordinateY(parent, graph)
-            //val children = graph.getChildCells(parent)
-            //graph.moveCells(children, 0.0, abs(mostNegativeY))
         } finally {
             // Updates the display
             graph.model.endUpdate()
@@ -72,14 +65,9 @@ object ProjectArchitectureGraph {
         frame.isVisible = true
     }
 
-    private fun getMostNegativeCoordinateY(parent: Any, graph: mxGraph): Double {
-        return graph.getChildCells(parent).minOf {
-            (it as mxCell).geometry?.y ?: 10000.0
-        }
-    }
-
     private fun populateGraph(project: Project, parent: Any, rootVertex: mxCell, graph: mxGraph) {
         val vertices = mutableSetOf<Pair<mxCell, String>>()
+        val activities = mutableSetOf<Pair<mxCell, String>>()
         ModuleManager.getInstance(project).modules.forEach { module ->
             module.rootManager.contentRoots.forEach { root ->
                 getAllSourceFiles(root).forEach { file ->
@@ -93,22 +81,29 @@ object ProjectArchitectureGraph {
                                     val fileName = file.name.removeExtension()
                                     val fileVertex = graph.addSingletonVertex(parent, fileName)
                                     val components = mvpComponents.first
-                                    val shouldRevert = mvpComponents.second
+                                    val isPost = mvpComponents.second
 
-                                    vertices.addAll(findActivityReferences(graph, parent, rootVertex, element))
+                                    activities.addAll(findActivityReferences(graph, parent, rootVertex, element))
+                                    vertices.addAll(activities)
                                     vertices.add(Pair(fileVertex, file.text))
                                     components.forEach { reference ->
                                         val referenceFile = reference.containingFile
                                         val referenceName = referenceFile.name.removeExtension()
                                         val referenceVertex = graph.addSingletonVertex(parent, referenceName)
-                                        val (edgeName, from, to) = if (shouldRevert) {
-                                            Triple("$fileName$referenceName", fileVertex, referenceVertex)
-                                        } else {
+                                        val (edgeName, from, to) = if (isPost) {
                                             Triple("$referenceName$fileName", referenceVertex, fileVertex)
+                                        } else {
+                                            Triple("$referenceName$fileName", fileVertex, referenceVertex)
                                         }
-                                        //graph.addSingletonEdge(parent, edgeName, from, to)
+                                        System.err.println("populateGraph: ${from.value} -> ${to.value} (POST = $isPost)")
+                                        graph.addSingletonEdge(parent, edgeName, from, to)
 
-                                        vertices.addAll(findActivityReferences(graph, parent, rootVertex, reference))
+                                        // To determine whether of not we should reverse it, we should check the destination vertex
+                                        // if it belongs to my MVP hierarchy, then we reverse it, if not, then we shouldn't
+                                        if (nodeInHierarchy(graph, parent, to, activities)) {
+                                            graph.addSingletonEdge(parent, edgeName.reversed(), to, from)
+                                        }
+
                                         vertices.add(Pair(referenceVertex, referenceFile.text))
                                     }
                                 }
@@ -118,11 +113,20 @@ object ProjectArchitectureGraph {
                 }
             }
         }
-
-        resolveInteractions(graph, parent, vertices)
     }
 
-    private fun findActivityReferences(graph: mxGraph, parent: Any, root: mxCell, psiElement: PsiElement): Set<Pair<mxCell, String>> {
+    private fun nodeInHierarchy(graph: mxGraph, parent: Any,  to: mxCell, activities: MutableSet<Pair<mxCell, String>>): Boolean {
+        return activities.any {
+            graph.hasEdge(parent, it.first, to)
+        }
+    }
+
+    private fun findActivityReferences(
+        graph: mxGraph,
+        parent: Any,
+        root: mxCell,
+        psiElement: PsiElement
+    ): MutableSet<Pair<mxCell, String>> {
         val result = mutableSetOf<Pair<mxCell, String>>()
         val fileName = psiElement.containingFile.name.removeExtension()
         if (fileName.contains("Presenter").not()) {
@@ -146,53 +150,6 @@ object ProjectArchitectureGraph {
         return result
     }
 
-    private fun resolveInteractions(graph: mxGraph, parent: Any, vertices: Set<Pair<mxCell, String>>) {
-        vertices.forEach { outer ->
-            getInteractionCandidates(outer, vertices)
-                .forEach { inner ->
-                    val outerVertex = outer.first
-                    val outerName = outerVertex.value as String
-                    val outerContent = outer.second
-
-                    val innerVertex = inner.first
-                    val innerName = innerVertex.value as String
-                    if (outerContent.contains(innerName)) {
-                        val edgeName = "$innerName$outerName"
-                        graph.addSingletonEdge(parent, edgeName, outerVertex, innerVertex)
-                    }
-                }
-        }
-    }
-
-    private fun getInteractionCandidates(element: Pair<mxCell, String>, vertices: Set<Pair<mxCell, String>>): List<Pair<mxCell, String>> {
-        var result = vertices.filter {
-            it != element
-        }
-        val elementName = (element.first.value as String)
-        result = when {
-            elementName.contains(Constants.MODEL, true) -> {
-                result.filter {
-                    (it.first.value as String).contains(Constants.PRESENTER, true)
-                }
-            }
-            elementName.contains(Constants.VIEW, true) -> {
-                result.filter {
-                    (it.first.value as String).contains(Constants.PRESENTER, true)
-                }
-            }
-            elementName.contains(Constants.PRESENTER, true) -> result
-            elementName.contains(Constants.MODEL, true) -> listOf()
-            else -> {
-                result.filter {
-                    (it.first.value as String).contains(Constants.MODEL, true).not() &&
-                            (it.first.value as String).contains(Constants.VIEW, true).not() &&
-                            (it.first.value as String).contains(Constants.PRESENTER, true).not()
-                }
-            }
-        }
-        return result
-    }
-
     private fun findMvpComponents(psiElement: PsiElement): Pair<Set<PsiElement>, Boolean>? {
         return when {
             PsiUtils.isSubscriptionMethod(psiElement) -> {
@@ -201,7 +158,7 @@ object ProjectArchitectureGraph {
                 if (usages.isEmpty()) {
                     null
                 } else {
-                    Pair(usages, true)
+                    Pair(usages, false)
                 }
             }
             PsiUtils.isEventBusPost(psiElement) -> {
@@ -210,7 +167,7 @@ object ProjectArchitectureGraph {
                 if (usages.isEmpty()) {
                     null
                 } else {
-                    Pair(usages, false)
+                    Pair(usages, true)
                 }
             }
             else -> null

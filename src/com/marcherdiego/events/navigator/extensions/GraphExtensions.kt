@@ -26,6 +26,12 @@ fun mxGraph.addSingletonEdge(parent: Any, name: String, from: Any, to: Any): mxC
     return resultEdge
 }
 
+fun mxGraph.hasEdge(parent: Any, from: mxCell, to: mxCell): Boolean {
+    return getChildEdges(parent).any {
+        (it as mxCell).id == "${from.value}${to.value}"
+    }
+}
+
 private fun getNodeStyle(name: String): String {
     val nodeName = name.toLowerCase()
     return when {

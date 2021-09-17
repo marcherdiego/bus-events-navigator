@@ -22,7 +22,7 @@ class ExtendedCompactTreeLayout(graph: mxGraph?) : mxCompactTreeLayout(graph) {
                         continue
                     }
                     val parentBounds = getVertexBounds(parentCell)
-                    val edgePoints = edge.geometry.points
+                    val edgePoints = edge.geometry.points ?: continue
 
                     val outPort = edgePoints[0]
                     val elbowPoint = edgePoints[1]
