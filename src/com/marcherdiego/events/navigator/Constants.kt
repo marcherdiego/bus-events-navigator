@@ -9,11 +9,14 @@ object Constants {
     const val IMPORT = "import"
     const val FUN = "fun"
 
+    const val APPLICATION = "application"
     const val NODE = "node"
     const val ACTIVITY = "activity"
     const val MODEL = "model"
     const val VIEW = "view"
     const val PRESENTER = "presenter"
+    const val ADAPTER = "adapter"
 
+    const val EDGE = "edge"
     const val REVERSED_EDGE = "reversed_edge"
 }

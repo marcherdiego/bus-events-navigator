@@ -10,14 +10,13 @@ import com.intellij.psi.PsiRecursiveElementWalkingVisitor
 import com.marcherdiego.events.navigator.extensions.addSingletonEdge
 import com.marcherdiego.events.navigator.extensions.addSingletonVertex
 import com.marcherdiego.events.navigator.extensions.removeExtension
+import com.marcherdiego.events.navigator.graph.component.GraphComponent
 import com.marcherdiego.events.navigator.graph.layout.ExtendedCompactTreeLayout
 import com.marcherdiego.events.navigator.graph.styles.GraphStyles
 import com.mxgraph.model.mxCell
-import com.mxgraph.swing.mxGraphComponent
-import com.mxgraph.swing.view.mxICellEditor
 import com.mxgraph.view.mxGraph
-import java.util.EventObject
 import javax.swing.JFrame
+
 
 object ProjectArchitectureGraph {
     private val validSourceExtensions = listOf("kt", "java")
@@ -28,28 +27,19 @@ object ProjectArchitectureGraph {
         }
         graph.model.beginUpdate()
         graph.isAutoSizeCells = true
+        graph.stylesheet.putCellStyle(Constants.APPLICATION, GraphStyles.getApplicationNodeStyle())
         graph.stylesheet.putCellStyle(Constants.NODE, GraphStyles.getNodeStyles())
         graph.stylesheet.putCellStyle(Constants.MODEL, GraphStyles.getModelNodeStyles())
         graph.stylesheet.putCellStyle(Constants.VIEW, GraphStyles.getViewNodeStyles())
         graph.stylesheet.putCellStyle(Constants.PRESENTER, GraphStyles.getPresenterNodeStyles())
-        graph.stylesheet.putCellStyle(Constants.REVERSED_EDGE, GraphStyles.getReversedArrowEdgeStyle())
 
-        val graphComponent = mxGraphComponent(graph)
-        graphComponent.isConnectable = false
-        graphComponent.isDragEnabled = false
-        graphComponent.cellEditor = object : mxICellEditor {
-            override fun getEditingCell() = null
-
-            override fun startEditing(cell: Any?, trigger: EventObject?) {
-            }
-
-            override fun stopEditing(cancel: Boolean) {
-            }
-        }
+        graph.stylesheet.putCellStyle(Constants.EDGE, GraphStyles.getEdgeStyle())
+        graph.stylesheet.putCellStyle(Constants.REVERSED_EDGE, GraphStyles.getReversedEdgeStyle())
 
         try {
             val parent = graph.defaultParent
             val appVertex = graph.addSingletonVertex(parent, "Application")
+            appVertex.style = Constants.APPLICATION
             populateGraph(project, parent, appVertex, graph)
             ExtendedCompactTreeLayout(graph).execute(parent)
         } finally {
@@ -57,7 +47,7 @@ object ProjectArchitectureGraph {
         }
         val frame = JFrame()
         frame.setSize(1500, 1200)
-        frame.contentPane.add(graphComponent)
+        frame.contentPane.add(GraphComponent(graph))
         frame.setLocationRelativeTo(null)
         frame.isVisible = true
     }

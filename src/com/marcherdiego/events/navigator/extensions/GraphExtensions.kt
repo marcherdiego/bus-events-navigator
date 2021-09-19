@@ -22,8 +22,11 @@ fun mxGraph.addSingletonEdge(parent: Any, name: String, from: Any, to: Any, reve
     } as? mxCell
     if (resultEdge == null) {
         resultEdge = insertEdge(parent, name, null, from, to) as mxCell
-        if (reversed) {
-            resultEdge.style = Constants.REVERSED_EDGE
+
+        resultEdge.style = if (reversed) {
+            Constants.REVERSED_EDGE
+        } else {
+            Constants.EDGE
         }
     }
     return resultEdge
@@ -33,7 +36,7 @@ private fun getNodeStyle(name: String): String {
     val nodeName = name.toLowerCase()
     return when {
         nodeName.contains(Constants.MODEL) -> Constants.MODEL
-        nodeName.contains(Constants.VIEW) -> Constants.VIEW
+        nodeName.contains(Constants.VIEW) || nodeName.contains(Constants.ADAPTER) -> Constants.VIEW
         nodeName.contains(Constants.PRESENTER) -> Constants.PRESENTER
         else -> Constants.NODE
     }
