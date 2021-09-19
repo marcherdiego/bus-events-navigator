@@ -16,20 +16,17 @@ fun mxGraph.addSingletonVertex(parent: Any, name: String): mxCell {
     return resultVertex
 }
 
-fun mxGraph.addSingletonEdge(parent: Any, name: String, from: Any, to: Any): mxCell {
+fun mxGraph.addSingletonEdge(parent: Any, name: String, from: Any, to: Any, reversed: Boolean = false): mxCell {
     var resultEdge = getChildEdges(parent).find {
         (it as mxCell).id == name
     } as? mxCell
     if (resultEdge == null) {
         resultEdge = insertEdge(parent, name, null, from, to) as mxCell
+        if (reversed) {
+            resultEdge.style = Constants.REVERSED_EDGE
+        }
     }
     return resultEdge
-}
-
-fun mxGraph.hasEdge(parent: Any, from: mxCell, to: mxCell): Boolean {
-    return getChildEdges(parent).any {
-        (it as mxCell).id == "${from.value}${to.value}"
-    }
 }
 
 private fun getNodeStyle(name: String): String {

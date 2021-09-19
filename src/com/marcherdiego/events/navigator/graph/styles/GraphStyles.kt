@@ -38,4 +38,17 @@ object GraphStyles {
             put(mxConstants.STYLE_FONTSTYLE, mxConstants.FONT_BOLD)
         }
     }
+
+    fun getReversedArrowEdgeStyle(): Map<String, Any> {
+        return mutableMapOf<String, Any>().apply {
+            put(mxConstants.STYLE_SHAPE, mxConstants.SHAPE_CONNECTOR)
+            put(mxConstants.STYLE_DASHED, true)
+            put(mxConstants.STYLE_ENDARROW, mxConstants.SHAPE_LINE)
+            put(mxConstants.STYLE_STARTARROW, mxConstants.ARROW_CLASSIC)
+            put(mxConstants.STYLE_VERTICAL_ALIGN, mxConstants.ALIGN_MIDDLE)
+            put(mxConstants.STYLE_ALIGN, mxConstants.ALIGN_CENTER)
+            put(mxConstants.STYLE_STROKECOLOR, "#6482B9")
+            put(mxConstants.STYLE_FONTCOLOR, "#446299")
+        }
+    }
 }

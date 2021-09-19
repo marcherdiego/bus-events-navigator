@@ -14,4 +14,6 @@ object Constants {
     const val MODEL = "model"
     const val VIEW = "view"
     const val PRESENTER = "presenter"
+
+    const val REVERSED_EDGE = "reversed_edge"
 }
