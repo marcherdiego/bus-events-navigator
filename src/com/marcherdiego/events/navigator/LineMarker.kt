@@ -30,8 +30,6 @@ class LineMarker : LineMarkerProvider {
                         PsiEditorUtil.findEditor(subscriberMethod),
                         Constants.MAX_USAGES
                     )
-
-                    ProjectArchitectureGraph.show(psiElement.project)
                 }
             }
             PsiUtils.isEventBusPost(psiElement) -> {
