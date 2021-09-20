@@ -22,7 +22,6 @@ object PsiUtils {
     private val javaLanguage = Language.findLanguageByID("JAVA")
     private val kotlinLanguage = Language.findLanguageByID("kotlin")
 
-    private var initDone = false
     private lateinit var psiShortNamesCache: PsiShortNamesCache
     private lateinit var allScope: GlobalSearchScope
     private lateinit var javaPsiFacade: JavaPsiFacade
@@ -30,15 +29,11 @@ object PsiUtils {
     private lateinit var fileIndex: ProjectFileIndex
 
     fun init(project: Project) {
-        if (initDone.not()) {
-            initDone = true
-
-            psiShortNamesCache = PsiShortNamesCache.getInstance(project)
-            allScope = GlobalSearchScope.allScope(project)
-            javaPsiFacade = JavaPsiFacade.getInstance(project)
-            subscribeAnnotationClass = javaPsiFacade.findClass(SUBSCRIBE_CLASS_NAME, allScope) ?: return
-            fileIndex = ProjectRootManager.getInstance(project).fileIndex
-        }
+        psiShortNamesCache = PsiShortNamesCache.getInstance(project)
+        allScope = GlobalSearchScope.allScope(project)
+        javaPsiFacade = JavaPsiFacade.getInstance(project)
+        subscribeAnnotationClass = javaPsiFacade.findClass(SUBSCRIBE_CLASS_NAME, allScope) ?: return
+        fileIndex = ProjectRootManager.getInstance(project).fileIndex
     }
 
     fun isSubscriptionMethod(psiElement: PsiElement): Boolean {

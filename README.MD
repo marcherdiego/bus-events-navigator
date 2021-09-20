@@ -11,6 +11,7 @@
 - This plugin if strongly tied to this <em>MVP library</em>, check it out: https://github.com/marcherdiego/android_mvp
 - Navigate though posters and subscribers easily to keep track of your MVP flow.
 - This plugin supports both Java and Kotlin and adapts to any kind of applications! Give it a try!
+- It also provides the ability to see the Application's structure based on events posted and received by the presenters.
 
 ### Posters and Subscribers
 Lines are marked with <img alt='Java' src='resources/icons/posters.svg'/> or <img alt='Java' src='resources/icons/subscribers.svg'/> depending on whether they `post` an event or `subscribe` to an event

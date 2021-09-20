@@ -1,18 +1,24 @@
 <idea-plugin>
     <id>com.marcherdiego.events.navigator</id>
     <name>Event bus navigator</name>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <vendor email="diego@marcher.com.uy" url="http://www.marcher.com.uy">Diego Marcher</vendor>
 
     <description><![CDATA[
-      Small plugin to keep track of event-posters for a given subscriber and the subscribers for a given event.
-      It also provides the ability to see the Application structure based on events posted and received by the presenters.
+        This plugin if highly tied to this <em>MVP library</em>, check it out: <a href="https://github.com/marcherdiego/android_mvp">Library Source</a>
+        <ul>
+            <li>Small plugin to keep track of event-posters for a given subscriber and the subscribers for a given event.</li>
+            <li>It also provides the ability to see the Application's structure based on events posted and received by the presenters.</li>
+        </ul>
     ]]></description>
 
     <change-notes><![CDATA[
-      Initial release
-      Basic wiring for @Subscribe-annotated methods, regardless the posting bus
-      Added subscriber-usages find to be able to navigate to the subscribers of a given event
+        <ul>
+            <li>Initial release</li>
+            <li>Basic wiring for @Subscribe-annotated methods, regardless the posting bus</li>
+            <li>Added subscriber-usages find to be able to navigate to the subscribers of a given posted event</li>
+            <li>Application's architecture based on events posted and subscribed.</li>
+        </ul>
     ]]>
     </change-notes>
 

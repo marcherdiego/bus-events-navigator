@@ -1,5 +1,6 @@
 package com.marcherdiego.events.navigator.graph.component
 
+import com.marcherdiego.events.navigator.graph.styles.GraphStyles
 import com.mxgraph.swing.mxGraphComponent
 import com.mxgraph.swing.view.mxICellEditor
 import com.mxgraph.view.mxGraph
@@ -20,7 +21,7 @@ class GraphComponent(graph: mxGraph) : mxGraphComponent(graph), MouseListener, M
         graphControl.addMouseMotionListener(this)
         isConnectable = false
         viewport.isOpaque = true
-        viewport.background = Color.decode("#121212")
+        viewport.background = Color.decode(GraphStyles.BACKGROUND_COLOR)
         addMouseWheelListener {
             if (it.wheelRotation < 0) {
                 zoomIn()

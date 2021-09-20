@@ -17,13 +17,12 @@ import com.mxgraph.model.mxCell
 import com.mxgraph.view.mxGraph
 import javax.swing.JFrame
 
-
-object ProjectArchitectureGraph {
+class ProjectArchitectureGraph(private var statusListener: StatusListener? = null) {
     private val validSourceExtensions = listOf("kt", "java")
 
     fun show(project: Project) {
         val graph = object : mxGraph() {
-            override fun isCellSelectable(cell: Any?) = false
+            //override fun isCellSelectable(cell: Any?) = false
         }
         graph.model.beginUpdate()
         graph.isAutoSizeCells = true
@@ -35,6 +34,7 @@ object ProjectArchitectureGraph {
 
         graph.stylesheet.putCellStyle(Constants.EDGE, GraphStyles.getEdgeStyle())
         graph.stylesheet.putCellStyle(Constants.REVERSED_EDGE, GraphStyles.getReversedEdgeStyle())
+        graph.stylesheet.putCellStyle(Constants.APPLICATION_EDGE, GraphStyles.getApplicationEdgeStyle())
 
         try {
             val parent = graph.defaultParent
@@ -53,23 +53,31 @@ object ProjectArchitectureGraph {
     }
 
     private fun populateGraph(project: Project, parent: Any, rootVertex: mxCell, graph: mxGraph) {
-        ModuleManager.getInstance(project).modules.forEach { module ->
-            module.rootManager.contentRoots.forEach { root ->
-                getAllSourceFiles(root).forEach { sourceFile ->
-                    PsiManager
-                        .getInstance(project)
-                        .findFile(sourceFile)
-                        ?.accept(object : PsiRecursiveElementWalkingVisitor() {
-                            override fun visitElement(element: PsiElement) {
-                                buildGraphTreeForComponent(parent, rootVertex, graph, element)
-                                super.visitElement(element)
-                            }
-                        })
+        try {
+            ModuleManager.getInstance(project).modules.forEach { module ->
+                module.rootManager.contentRoots.forEach { root ->
+                    val allSourceFiles = getAllSourceFiles(root)
+                    val totalFiles = allSourceFiles.size
+                    allSourceFiles.forEachIndexed { index, sourceFile ->
+                        PsiManager
+                            .getInstance(project)
+                            .findFile(sourceFile)
+                            ?.accept(object : PsiRecursiveElementWalkingVisitor() {
+                                override fun visitElement(element: PsiElement) {
+                                    statusListener?.notifyStatusUpdate(module.name, index.toFloat() / totalFiles.toFloat())
+                                    buildGraphTreeForComponent(parent, rootVertex, graph, element)
+                                    super.visitElement(element)
+                                }
+                            })
+                    }
                 }
             }
-        }
 
-        cleanUpUnusedNodes(parent, graph)
+            cleanUpUnusedNodes(parent, graph)
+            statusListener?.onCompleted()
+        } catch (e: Exception) {
+            statusListener?.onFailed()
+        }
     }
 
     private fun cleanUpUnusedNodes(parent: Any, graph: mxGraph) {
@@ -119,7 +127,9 @@ object ProjectArchitectureGraph {
                 val activityVertex = graph.addSingletonVertex(parent, activityName)
                 graph.addSingletonEdge(parent, "$activityName$fileName", activityVertex, fileVertex)
 
-                graph.addSingletonEdge(parent, "root-$activityName", root, activityVertex)
+                graph.addSingletonEdge(parent, "root-$activityName", root, activityVertex).apply {
+                    style = Constants.APPLICATION_EDGE
+                }
             }
         }
     }
@@ -149,5 +159,11 @@ object ProjectArchitectureGraph {
             children.addAll(getAllSourceFiles(child))
         }
         return children
+    }
+
+    interface StatusListener {
+        fun notifyStatusUpdate(module: String, completed: Float)
+        fun onCompleted()
+        fun onFailed()
     }
 }

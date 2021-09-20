@@ -83,7 +83,6 @@ import com.intellij.util.ui.AsyncProcessIcon
 import com.intellij.util.ui.ColumnInfo
 import com.intellij.util.ui.ListTableModel
 import org.jetbrains.annotations.NonNls
-import org.jetbrains.annotations.NotNull
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Rectangle
@@ -394,7 +393,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         if (shortcut != null) {
             shortcutText = "(" + KeymapUtil.getShortcutText(shortcut) + ")"
         }
-        return InplaceButton("Settings...$shortcutText", General.Settings, ActionListener { _: ActionEvent? ->
+        return InplaceButton("Settings...$shortcutText", General.Settings, ActionListener { e: ActionEvent? ->
             SwingUtilities.invokeLater {
                 showDialogAndFindUsages(handler, popupPosition, editor, maxUsages)
             }
@@ -531,7 +530,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         popup.setCaption(fullTitle)
         val data = collectData(usages, nodes, usageView, presentation)
         val tableModel = setTableModel(table, usageView, data)
-        val existingData = tableModel.items
+        val existingData = tableModel.items as List<UsageNode>
         val row = table.selectedRow
         var newSelection = updateModel(tableModel, existingData, data, if (row == -1) 0 else row)
         if (newSelection < 0 || newSelection >= tableModel.rowCount) {
@@ -656,12 +655,12 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         override fun toString() = myString.toString()
     }
 
-    private class MySpeedSearch internal constructor(table: MyTable) : SpeedSearchBase<JTable?>(table) {
+    private class MySpeedSearch(table: MyTable) : SpeedSearchBase<JTable?>(table) {
         override fun getSelectedIndex() = table.selectedRow
 
         override fun convertIndexToModel(viewIndex: Int) = table.convertRowIndexToModel(viewIndex)
 
-        override fun getAllElements(): Array<out @NotNull Any> = arrayOf((table.model as MyModel).items)
+        override fun getAllElements() = arrayOf((table.model as MyModel).items)
 
         override fun getElementText(element: Any): String? {
             if (element !is UsageNode) {
@@ -735,7 +734,8 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
             } else {
                 val offset = editor.caretModel.offset
                 val chosen = GotoDeclarationAction.chooseAmbiguousTarget(
-                    project, editor, offset, processor, FindBundle.message("find.usages.ambiguous.title", "crap"), null
+                    editor, offset, processor,
+                    FindBundle.message("find.usages.ambiguous.title", "crap"), null
                 )
                 if (!chosen) {
                     ApplicationManager.getApplication().invokeLater(Runnable {
@@ -934,8 +934,8 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         }
 
         // returns new selection
-        private fun updateModel(tableModel: MyModel, listOld: List<UsageNode?>, listNew: List<UsageNode>, oldSelection: Int): Int {
-            val cmds = ModelDiff.createDiffCmds(tableModel, arrayOf(listOld), listNew.toTypedArray())
+        private fun updateModel(tableModel: MyModel, listOld: List<UsageNode>, listNew: List<UsageNode>, oldSelection: Int): Int {
+            val cmds = ModelDiff.createDiffCmds(tableModel, listOld.toTypedArray(), listNew.toTypedArray())
             var selection = oldSelection
             if (cmds != null) {
                 for (cmd in cmds) {

@@ -10,6 +10,7 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.project.Project;
+import com.marcherdiego.events.navigator.ProjectArchitectureGraph.StatusListener;
 
 public class ViewAppStructure extends AnAction {
 
@@ -24,16 +25,32 @@ public class ViewAppStructure extends AnAction {
         final JPanel contentPane = new JPanel();
         contentPane.setBorder(BorderFactory.createEmptyBorder(20, 120, 20, 120));
         contentPane.setLayout(new BorderLayout());
-        contentPane.add(new JLabel("Please wait..."), BorderLayout.NORTH);
+        JLabel resultLabel = new JLabel("Please wait...");
+        contentPane.add(resultLabel, BorderLayout.NORTH);
         loadingFrame.setContentPane(contentPane);
         loadingFrame.pack();
         loadingFrame.setLocationRelativeTo(null);
         loadingFrame.setVisible(true);
         SwingUtilities.invokeLater(() -> {
             PsiUtils.INSTANCE.init(project);
-            ProjectArchitectureGraph.INSTANCE.show(project);
-            loadingFrame.setVisible(false);
-            java.awt.EventQueue.invokeLater(() -> {
+            ProjectArchitectureGraph projectArchitectureGraph = new ProjectArchitectureGraph(new StatusListener() {
+                @Override
+                public void notifyStatusUpdate(@NotNull String module, float completed) {
+                    resultLabel.setText("In module: " + module + ": completed " + completed + "%");
+                }
+
+                @Override
+                public void onCompleted() {
+                    loadingFrame.setVisible(false);
+                }
+
+                @Override
+                public void onFailed() {
+                    loadingFrame.setVisible(false);
+                }
+            });
+            projectArchitectureGraph.show(project);
+            EventQueue.invokeLater(() -> {
                 loadingFrame.toFront();
                 loadingFrame.repaint();
             });

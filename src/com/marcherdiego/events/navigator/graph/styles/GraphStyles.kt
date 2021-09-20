@@ -4,11 +4,15 @@ import com.mxgraph.util.mxConstants
 import com.mxgraph.view.mxPerimeter
 
 object GraphStyles {
+    const val BACKGROUND_COLOR = "#121212"
     private const val DARK_GREY = "#101010"
     private const val LIGHT_GREY = "#202020"
     private const val RED = "#460202"
+    private const val DARK_RED = "#360202"
     private const val GREEN = "#023a05"
+    private const val DARK_GREEN = "#022a05"
     private const val BLUE = "#022a46"
+    private const val DARK_BLUE = "#022a36"
 
     fun getNodeStyles(): Map<String, Any> {
         return mutableMapOf<String, Any>().apply {
@@ -22,6 +26,7 @@ object GraphStyles {
     fun getApplicationNodeStyle(): Map<String, Any> {
         return getNodeStyles().toMutableMap().apply {
             put(mxConstants.STYLE_FILLCOLOR, DARK_GREY)
+            put(mxConstants.STYLE_STROKECOLOR, DARK_GREY)
             put(mxConstants.STYLE_FONTSTYLE, mxConstants.FONT_BOLD)
         }
     }
@@ -29,18 +34,21 @@ object GraphStyles {
     fun getModelNodeStyles(): Map<String, Any> {
         return getNodeStyles().toMutableMap().apply {
             put(mxConstants.STYLE_FILLCOLOR, RED)
+            put(mxConstants.STYLE_STROKECOLOR, DARK_RED)
         }
     }
 
     fun getViewNodeStyles(): Map<String, Any> {
         return getNodeStyles().toMutableMap().apply {
             put(mxConstants.STYLE_FILLCOLOR, GREEN)
+            put(mxConstants.STYLE_STROKECOLOR, DARK_GREEN)
         }
     }
 
     fun getPresenterNodeStyles(): Map<String, Any> {
         return getNodeStyles().toMutableMap().apply {
             put(mxConstants.STYLE_FILLCOLOR, BLUE)
+            put(mxConstants.STYLE_STROKECOLOR, DARK_BLUE)
             put(mxConstants.STYLE_FONTSTYLE, mxConstants.FONT_BOLD)
         }
     }
@@ -61,6 +69,12 @@ object GraphStyles {
             put(mxConstants.STYLE_DASHED, true)
             put(mxConstants.STYLE_ENDARROW, mxConstants.SHAPE_LINE)
             put(mxConstants.STYLE_STARTARROW, mxConstants.ARROW_CLASSIC)
+        }
+    }
+
+    fun getApplicationEdgeStyle(): Map<String, Any> {
+        return getEdgeStyle().toMutableMap().apply {
+            put(mxConstants.STYLE_STROKECOLOR, BACKGROUND_COLOR)
         }
     }
 }

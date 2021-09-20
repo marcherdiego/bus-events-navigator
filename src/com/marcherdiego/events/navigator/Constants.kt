@@ -19,4 +19,5 @@ object Constants {
 
     const val EDGE = "edge"
     const val REVERSED_EDGE = "reversed_edge"
+    const val APPLICATION_EDGE = "application_edge"
 }
