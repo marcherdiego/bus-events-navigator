@@ -35,12 +35,10 @@
     </extensions>
 
     <actions>
-        <group id="com.marcherdiego.mvp.group" text="Nerd's Corner MVP" popup="true">
+        <action id="View App Map Btn" class="com.marcherdiego.events.navigator.ViewAppStructure" text="View Application's Structure">
+            <keyboard-shortcut keymap="$default" first-keystroke="shift meta S" second-keystroke="shift ctrl S"/>
             <add-to-group group-id="ToolsMenu" anchor="first"/>
-            <action id="View App Map Btn" class="com.marcherdiego.events.navigator.ViewAppStructure" text="View Application's Structure">
-                <keyboard-shortcut keymap="$default" first-keystroke="shift meta S" second-keystroke="shift ctrl S"/>
-            </action>
-        </group>
+        </action>
     </actions>
 
 </idea-plugin>

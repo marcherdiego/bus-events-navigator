@@ -10,20 +10,22 @@ import com.intellij.psi.PsiRecursiveElementWalkingVisitor
 import com.marcherdiego.events.navigator.extensions.addSingletonEdge
 import com.marcherdiego.events.navigator.extensions.addSingletonVertex
 import com.marcherdiego.events.navigator.extensions.removeExtension
-import com.marcherdiego.events.navigator.graph.component.GraphComponent
 import com.marcherdiego.events.navigator.graph.layout.ExtendedCompactTreeLayout
 import com.marcherdiego.events.navigator.graph.styles.GraphStyles
 import com.mxgraph.model.mxCell
+import com.mxgraph.swing.mxGraphComponent
+import com.mxgraph.swing.view.mxICellEditor
 import com.mxgraph.view.mxGraph
+import java.awt.Color
+import java.awt.Toolkit
+import java.util.EventObject
 import javax.swing.JFrame
 
 class ProjectArchitectureGraph(private var statusListener: StatusListener? = null) {
     private val validSourceExtensions = listOf("kt", "java")
 
     fun show(project: Project) {
-        val graph = object : mxGraph() {
-            //override fun isCellSelectable(cell: Any?) = false
-        }
+        val graph = mxGraph()
         graph.model.beginUpdate()
         graph.isAutoSizeCells = true
         graph.stylesheet.putCellStyle(Constants.APPLICATION, GraphStyles.getApplicationNodeStyle())
@@ -46,8 +48,30 @@ class ProjectArchitectureGraph(private var statusListener: StatusListener? = nul
             graph.model.endUpdate()
         }
         val frame = JFrame()
-        frame.setSize(1500, 1200)
-        frame.contentPane.add(GraphComponent(graph))
+        val size = Toolkit.getDefaultToolkit().screenSize
+        frame.setSize(size.width, size.height)
+        val graphComponent = mxGraphComponent(graph)
+        graphComponent.viewport.isOpaque = true
+        graphComponent.viewport.background = Color.decode(GraphStyles.BACKGROUND_COLOR)
+        graphComponent.isConnectable = false
+        graphComponent.isDragEnabled = false
+        graphComponent.cellEditor = object : mxICellEditor {
+            override fun getEditingCell() = null
+
+            override fun startEditing(cell: Any?, trigger: EventObject?) {
+            }
+
+            override fun stopEditing(cancel: Boolean) {
+            }
+        }
+        graphComponent.addMouseWheelListener {
+            if (it.wheelRotation < 0) {
+                graphComponent.zoomIn()
+            } else if (it.wheelRotation > 0) {
+                graphComponent.zoomOut()
+            }
+        }
+        frame.contentPane.add(graphComponent)
         frame.setLocationRelativeTo(null)
         frame.isVisible = true
     }
