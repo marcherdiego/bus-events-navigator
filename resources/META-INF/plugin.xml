@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.marcherdiego.events.navigator</id>
-    <name>Event bus navigator</name>
-    <version>1.1.1</version>
+    <name>Bus Events Navigator</name>
+    <version>1.1.2</version>
     <vendor email="diego@marcher.com.uy" url="http://www.marcher.com.uy">Diego Marcher</vendor>
 
     <description><![CDATA[
@@ -35,10 +35,12 @@
     </extensions>
 
     <actions>
-        <action id="View App Map Btn" class="com.marcherdiego.events.navigator.ViewAppStructure" text="View Application Structure">
-            <keyboard-shortcut keymap="$default" first-keystroke="shift meta S" second-keystroke="shift ctrl S"/>
+        <group id="com.marcherdiego.mvp.group" text="Nerd's Corner MVP" popup="true">
             <add-to-group group-id="ToolsMenu" anchor="first"/>
-        </action>
+            <action id="View App Map Btn" class="com.marcherdiego.events.navigator.ViewAppStructure" text="View Application's Structure">
+                <keyboard-shortcut keymap="$default" first-keystroke="shift meta S" second-keystroke="shift ctrl S"/>
+            </action>
+        </group>
     </actions>
 
 </idea-plugin>
