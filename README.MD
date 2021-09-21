@@ -19,9 +19,12 @@ Lines are marked with <img alt='Java' src='resources/icons/posters.svg'/> or <im
 |:----------------------------------------------------------------:	|:--------------------------------------------------------------------:	|
 | <img alt='Java' src='resources/icons/posters.svg' height='100'/> 	| <img alt='Java' src='resources/icons/subscribers.svg' height='100'/> 	|
 
-### Example usage
+### Example usages
 #### Java
 <img alt='Java' src='gifs/java.gif'/>
 
 #### Kotlin
 <img alt='Kotlin' src='gifs/kotlin.gif'/>
+
+#### Application's Architecture Overview
+<img alt='Kotlin' src='gifs/structure.gif'/>
