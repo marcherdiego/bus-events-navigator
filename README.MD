@@ -27,4 +27,4 @@ Lines are marked with <img alt='Java' src='resources/icons/posters.svg'/> or <im
 <img alt='Kotlin' src='gifs/kotlin.gif'/>
 
 #### Application's Architecture Overview
-<img alt='Kotlin' src='gifs/structure.gif'/>
+<img alt='App Structure' src='gifs/structure.gif'/>
