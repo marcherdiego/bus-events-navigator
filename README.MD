@@ -19,7 +19,7 @@ Lines are marked with <img alt='Java' src='resources/icons/posters.svg'/> or <im
 |:----------------------------------------------------------------:	|:--------------------------------------------------------------------:	|
 | <img alt='Java' src='resources/icons/posters.svg' height='100'/> 	| <img alt='Java' src='resources/icons/subscribers.svg' height='100'/> 	|
 
-### Example usages
+### Example usages (GIFs might take some time to load)
 #### Java
 <img alt='Java' src='gifs/java.gif'/>
 
