@@ -92,9 +92,9 @@ class ProjectArchitectureGraph(private var statusListener: StatusListener? = nul
                             override fun visitElement(element: PsiElement) {
                                 statusListener?.notifyStatusUpdate(
                                     module.name,
-                                    moduleIndex,
+                                    moduleIndex + 1,
                                     modules.size,
-                                    fileIndex.toFloat() / totalFiles.toFloat()
+                                    (fileIndex + 1).toFloat() / totalFiles.toFloat()
                                 )
                                 readAction {
                                     buildGraphTreeForComponent(parent, rootVertex, graph, element)
