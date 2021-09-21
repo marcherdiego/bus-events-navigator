@@ -1,6 +1,9 @@
 package com.marcherdiego.events.navigator
 
 import com.intellij.lang.Language
+import com.intellij.openapi.progress.EmptyProgressIndicator
+import com.intellij.openapi.progress.ProgressIndicatorProvider
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.roots.ProjectRootManager
@@ -92,12 +95,17 @@ object PsiUtils {
         parameterClass.constructors.forEach {
             val parameterFile = it.containingFile.virtualFile
             fileIndex.getModuleForFile(parameterFile) ?: return@forEach
-            MethodReferencesSearch.search(it, allScope, false).findAll().forEach { reference ->
-                val referencedElement = (reference.element.references.firstOrNull() ?: return@forEach).element
-                if (method.containingFile.name != referencedElement.containingFile.name) {
-                    usages.add(referencedElement)
-                }
-            }
+            ProgressManager.getInstance().runProcess(
+                {
+                    MethodReferencesSearch.search(it, allScope, false).findAll().forEach { reference ->
+                        val referencedElement = (reference.element.references.firstOrNull() ?: return@forEach).element
+                        if (method.containingFile.name != referencedElement.containingFile.name) {
+                            usages.add(referencedElement)
+                        }
+                    }
+                },
+                EmptyProgressIndicator()
+            )
         }
         return usages
     }
@@ -107,12 +115,18 @@ object PsiUtils {
         psiClass.constructors.forEach {
             val parameterFile = it.containingFile.virtualFile
             fileIndex.getModuleForFile(parameterFile) ?: return@forEach
-            MethodReferencesSearch.search(it, allScope, false).findAll().forEach { reference ->
-                val referencedElement = (reference.element.references.firstOrNull() ?: return@forEach).element
-                if (psiClass.containingFile.name != referencedElement.containingFile.name) {
-                    usages.add(referencedElement)
-                }
-            }
+            ProgressManager.getInstance().runProcess(
+                {
+                    MethodReferencesSearch.search(it, allScope, false).findAll().forEach { reference ->
+                        val referencedElement = (reference.element.references.firstOrNull() ?: return@forEach).element
+                        if (psiClass.containingFile.name != referencedElement.containingFile.name) {
+                            usages.add(referencedElement)
+                        }
+                    }
+                },
+                EmptyProgressIndicator()
+            )
+
         }
         return usages
     }

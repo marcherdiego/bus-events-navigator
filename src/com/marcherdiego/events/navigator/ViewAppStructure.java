@@ -22,38 +22,48 @@ public class ViewAppStructure extends AnAction {
         }
 
         JFrame loadingFrame = new JFrame("Building dependencies graph...");
-        final JPanel contentPane = new JPanel();
-        contentPane.setBorder(BorderFactory.createEmptyBorder(20, 120, 20, 120));
-        contentPane.setLayout(new BorderLayout());
-        JLabel resultLabel = new JLabel("Please wait...");
-        contentPane.add(resultLabel, BorderLayout.NORTH);
+        final JPanel contentPane = new JPanel(new BorderLayout());
+        contentPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        JPanel innerPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gridBagConstraints = new GridBagConstraints();
+        gridBagConstraints.weightx = 1;
+        gridBagConstraints.fill = GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.gridwidth = GridBagConstraints.REMAINDER;
+        JLabel resultLabel = new JLabel("Please wait...", SwingConstants.CENTER);
+        innerPanel.add(resultLabel, gridBagConstraints);
+        contentPane.add(innerPanel, BorderLayout.CENTER);
+
         loadingFrame.setContentPane(contentPane);
         loadingFrame.pack();
+        loadingFrame.setSize(500, 100);
         loadingFrame.setLocationRelativeTo(null);
         loadingFrame.setVisible(true);
-        SwingUtilities.invokeLater(() -> {
-            PsiUtils.INSTANCE.init(project);
-            ProjectArchitectureGraph projectArchitectureGraph = new ProjectArchitectureGraph(new StatusListener() {
-                @Override
-                public void notifyStatusUpdate(@NotNull String module, float completed) {
-                    resultLabel.setText("In module: " + module + ": completed " + completed + "%");
-                }
 
-                @Override
-                public void onCompleted() {
-                    loadingFrame.setVisible(false);
-                }
+        PsiUtils.INSTANCE.init(project);
+        ProjectArchitectureGraph projectArchitectureGraph = new ProjectArchitectureGraph(new StatusListener() {
+            @Override
+            public void notifyStatusUpdate(@NotNull String module, int moduleIndex, int modulesCount, float completed) {
+                SwingUtilities.invokeLater(() -> {
+                    String percentage = String.format("%.0f", 100f * completed);
+                    resultLabel.setText("In module " + moduleIndex + " of " + modulesCount + ": " + module + ": completed " + percentage + "%");
+                });
+            }
 
-                @Override
-                public void onFailed() {
-                    loadingFrame.setVisible(false);
-                }
-            });
-            projectArchitectureGraph.show(project);
-            EventQueue.invokeLater(() -> {
-                loadingFrame.toFront();
-                loadingFrame.repaint();
-            });
+            @Override
+            public void onCompleted() {
+                loadingFrame.setVisible(false);
+            }
+
+            @Override
+            public void onFailed() {
+                loadingFrame.setVisible(false);
+            }
+        });
+        new Thread(() -> projectArchitectureGraph.show(project)).start();
+        EventQueue.invokeLater(() -> {
+            loadingFrame.toFront();
+            loadingFrame.repaint();
         });
     }
 

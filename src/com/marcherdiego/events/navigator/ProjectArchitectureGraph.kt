@@ -9,6 +9,7 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiRecursiveElementWalkingVisitor
 import com.marcherdiego.events.navigator.extensions.addSingletonEdge
 import com.marcherdiego.events.navigator.extensions.addSingletonVertex
+import com.marcherdiego.events.navigator.extensions.readAction
 import com.marcherdiego.events.navigator.extensions.removeExtension
 import com.marcherdiego.events.navigator.graph.layout.ExtendedCompactTreeLayout
 import com.marcherdiego.events.navigator.graph.styles.GraphStyles
@@ -78,21 +79,29 @@ class ProjectArchitectureGraph(private var statusListener: StatusListener? = nul
 
     private fun populateGraph(project: Project, parent: Any, rootVertex: mxCell, graph: mxGraph) {
         try {
-            ModuleManager.getInstance(project).modules.forEach { module ->
+            val modules = ModuleManager.getInstance(project).modules
+            modules.forEachIndexed { moduleIndex, module ->
                 module.rootManager.contentRoots.forEach { root ->
                     val allSourceFiles = getAllSourceFiles(root)
                     val totalFiles = allSourceFiles.size
-                    allSourceFiles.forEachIndexed { index, sourceFile ->
-                        PsiManager
-                            .getInstance(project)
-                            .findFile(sourceFile)
-                            ?.accept(object : PsiRecursiveElementWalkingVisitor() {
-                                override fun visitElement(element: PsiElement) {
-                                    statusListener?.notifyStatusUpdate(module.name, index.toFloat() / totalFiles.toFloat())
+                    allSourceFiles.forEachIndexed { fileIndex, sourceFile ->
+                        val psiFile = readAction {
+                            PsiManager.getInstance(project).findFile(sourceFile)
+                        }
+                        psiFile?.accept(object : PsiRecursiveElementWalkingVisitor() {
+                            override fun visitElement(element: PsiElement) {
+                                statusListener?.notifyStatusUpdate(
+                                    module.name,
+                                    moduleIndex,
+                                    modules.size,
+                                    fileIndex.toFloat() / totalFiles.toFloat()
+                                )
+                                readAction {
                                     buildGraphTreeForComponent(parent, rootVertex, graph, element)
                                     super.visitElement(element)
                                 }
-                            })
+                            }
+                        })
                     }
                 }
             }
@@ -186,7 +195,7 @@ class ProjectArchitectureGraph(private var statusListener: StatusListener? = nul
     }
 
     interface StatusListener {
-        fun notifyStatusUpdate(module: String, completed: Float)
+        fun notifyStatusUpdate(module: String, moduleIndex: Int, modulesCount: Int, completed: Float)
         fun onCompleted()
         fun onFailed()
     }
