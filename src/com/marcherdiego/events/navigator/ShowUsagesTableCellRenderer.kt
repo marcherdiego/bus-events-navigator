@@ -41,8 +41,8 @@ internal class ShowUsagesTableCellRenderer(private val myUsageView: UsageViewImp
         val usage = usageNode?.usage
         val panel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0))
         val fileBgColor = getBackgroundColor(isSelected, usage)
-        val bg = UIUtil.getListSelectionBackground()
-        val fg = UIUtil.getListSelectionForeground()
+        val bg = UIUtil.getListSelectionBackground(true)
+        val fg = UIUtil.getListSelectionForeground(true)
         panel.background = if (isSelected) {
             bg
         } else {
@@ -109,7 +109,7 @@ internal class ShowUsagesTableCellRenderer(private val myUsageView: UsageViewImp
     private fun getBackgroundColor(isSelected: Boolean, usage: Usage?): Color? {
         var fileBgColor: Color? = null
         if (isSelected) {
-            fileBgColor = UIUtil.getListSelectionBackground()
+            fileBgColor = UIUtil.getListSelectionBackground(true)
         } else {
             val virtualFile = if (usage is UsageInFile) {
                 usage.file
@@ -147,19 +147,18 @@ internal class ShowUsagesTableCellRenderer(private val myUsageView: UsageViewImp
     }
 
     internal class StringNode(private val myString: Any) : UsageNode(null, NullUsage.INSTANCE) {
-        override fun toString(): String {
-            return myString.toString()
-        }
+        override fun toString() = myString.toString()
     }
 
     companion object {
         private val MORE_USAGES_SEPARATOR = NullUsage.INSTANCE
+
         private fun deriveAttributesWithColor(attributes: SimpleTextAttributes, fileBgColor: Color?): SimpleTextAttributes {
-            var attributes = attributes
-            if (fileBgColor != null) {
-                attributes = attributes.derive(-1, null, fileBgColor, null)
+            return if (fileBgColor == null) {
+                attributes
+            } else {
+                attributes.derive(-1, null, fileBgColor, null)
             }
-            return attributes
         }
     }
 }

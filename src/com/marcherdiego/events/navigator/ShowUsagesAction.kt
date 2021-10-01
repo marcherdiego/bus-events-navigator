@@ -20,7 +20,6 @@ import com.intellij.icons.AllIcons.General
 import com.intellij.icons.AllIcons.Toolwindows
 import com.intellij.ide.util.gotoByName.ModelDiff
 import com.intellij.ide.util.gotoByName.ModelDiff.Model
-import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionPlaces
 import com.intellij.openapi.actionSystem.AnAction
@@ -44,7 +43,6 @@ import com.intellij.openapi.ui.popup.JBPopup
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.ui.popup.PopupChooserBuilder
 import com.intellij.openapi.util.Comparing
-import com.intellij.openapi.util.Condition
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.IdeFocusManager
 import com.intellij.psi.PsiDocumentManager
@@ -71,7 +69,6 @@ import com.intellij.usages.UsageViewPresentation
 import com.intellij.usages.UsageViewSettings
 import com.intellij.usages.impl.GroupNode
 import com.intellij.usages.impl.NullUsage
-import com.intellij.usages.impl.UsageGroupingRuleProviderImpl
 import com.intellij.usages.impl.UsageNode
 import com.intellij.usages.impl.UsageViewImpl
 import com.intellij.usages.impl.UsageViewManagerImpl
@@ -86,8 +83,6 @@ import org.jetbrains.annotations.NonNls
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Rectangle
-import java.awt.event.ActionEvent
-import java.awt.event.ActionListener
 import java.util.ArrayList
 import java.util.Collections
 import java.util.Comparator
@@ -130,14 +125,10 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         val usageTargets = e.getData(UsageView.USAGE_TARGETS_KEY)
         val editor = e.getData(PlatformDataKeys.EDITOR)
         if (usageTargets == null) {
-            chooseAmbiguousTargetAndPerform(
-                project,
-                editor,
-                PsiElementProcessor { element: PsiElement ->
-                    startFindUsages(element, popupPosition, editor, USAGES_PAGE_SIZE)
-                    false
-                }
-            )
+            chooseAmbiguousTargetAndPerform(project, editor) { element: PsiElement ->
+                startFindUsages(element, popupPosition, editor, USAGES_PAGE_SIZE)
+                false
+            }
         } else {
             val element = (usageTargets[0] as PsiElementUsageTarget).element
             element?.let {
@@ -167,7 +158,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         val presentation = findUsagesManager.createPresentation(handler, options)
         presentation.isDetachedMode = true
         val usageView = manager.createUsageView(UsageTarget.EMPTY_ARRAY, Usage.EMPTY_ARRAY, presentation, null) as UsageViewImpl
-        Disposer.register(usageView, Disposable {
+        Disposer.register(usageView, {
             myUsageViewSettings.loadState(usageViewSettings)
             usageViewSettings.loadState(savedGlobalSettings)
         })
@@ -196,7 +187,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         val alarm = Alarm(usageView)
         alarm.addRequest({ showPopupIfNeedTo(popup, popupPosition) }, 300)
         val pingEDT = PingEDT(
-            Condition<Any> { popup.isDisposed },
+            { popup.isDisposed },
             100,
             Runnable {
                 if (popup.isDisposed) {
@@ -255,9 +246,9 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
             handler.secondaryElements,
             collect,
             options,
-            Runnable {
+            {
                 ApplicationManager.getApplication().invokeLater(
-                    Runnable {
+                    {
                         Disposer.dispose(processIcon)
                         val parent = processIcon.parent
                         parent.remove(processIcon)
@@ -309,7 +300,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
                 )
             }
         )
-        Disposer.register(popup, Disposable { indicator.cancel() })
+        Disposer.register(popup, { indicator.cancel() })
     }
 
     private fun transform(usage: Usage) = usage
@@ -393,12 +384,12 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         if (shortcut != null) {
             shortcutText = "(" + KeymapUtil.getShortcutText(shortcut) + ")"
         }
-        return InplaceButton("Settings...$shortcutText", General.Settings, ActionListener { e: ActionEvent? ->
+        return InplaceButton("Settings...$shortcutText", General.Settings) {
             SwingUtilities.invokeLater {
                 showDialogAndFindUsages(handler, popupPosition, editor, maxUsages)
             }
             cancelAction.run()
-        })
+        }
     }
 
     private fun showDialogAndFindUsages(handler: FindUsagesHandler, popupPosition: RelativePoint, editor: Editor?, maxUsages: Int) {
@@ -461,7 +452,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
                 }
             }.registerCustomShortcutSet(CustomShortcutSet(it.firstKeyStroke), table)
         }
-        val settingsButton = createSettingsButton(handler, popupPosition, editor, maxUsages, Runnable { popup.first().cancel() })
+        val settingsButton = createSettingsButton(handler, popupPosition, editor, maxUsages) { popup.first().cancel() }
         val spinningProgress: ActiveComponent = object : ActiveComponent {
             override fun setActive(active: Boolean) {}
             override fun getComponent() = processIcon
@@ -469,7 +460,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
         builder.setCommandButton(CompositeActiveComponent(spinningProgress, settingsButton))
         val toolbar = DefaultActionGroup()
         usageView.addFilteringActions(toolbar)
-        toolbar.add(UsageGroupingRuleProviderImpl.createGroupByFileStructureAction(usageView))
+        toolbar.add(ActionManager.getInstance().getAction("UsageGrouping.FileStructure"))
         toolbar.add(object : AnAction(
             "Open Find Usages Toolwindow", "Show all usages in a separate toolwindow", Toolwindows.ToolWindowFind
         ) {
@@ -734,8 +725,12 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
             } else {
                 val offset = editor.caretModel.offset
                 val chosen = GotoDeclarationAction.chooseAmbiguousTarget(
-                    editor, offset, processor,
-                    FindBundle.message("find.usages.ambiguous.title", "crap"), null
+                    project,
+                    editor,
+                    offset,
+                    processor,
+                    FindBundle.message("find.usages.ambiguous.title", "crap"),
+                    null
                 )
                 if (!chosen) {
                     ApplicationManager.getApplication().invokeLater(Runnable {
@@ -911,7 +906,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
             for (col in 0 until colsNum - 1) {
                 val column = table.columnModel.getColumn(col)
                 val preferred = column.preferredWidth
-                val width = Math.max(preferred, columnMaxWidth(table, col))
+                val width = max(preferred, columnMaxWidth(table, col))
                 totalWidth += width
                 column.minWidth = width
                 column.maxWidth = width
@@ -952,7 +947,7 @@ class ShowUsagesAction(private val filter: Filter) : AnAction(), PopupAction {
             if (rectangle.getHeight() != newDim.getHeight()) {
                 val newHeight = rectangle.getHeight().toInt()
                 val roundedHeight = newHeight - newHeight % table.rowHeight
-                rectangle.setSize(rectangle.getWidth().toInt(), Math.max(roundedHeight, table.rowHeight))
+                rectangle.setSize(rectangle.getWidth().toInt(), max(roundedHeight, table.rowHeight))
             }
             return rectangle
         }
